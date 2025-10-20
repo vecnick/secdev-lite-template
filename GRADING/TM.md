@@ -116,7 +116,7 @@ flowchart TD
 
 ## 4) Требования (S03) и ADR-решения (S05) под Top-5 (TM4)
 
-### NFR-001 - Безопасность аутентификации
+### NFR-005 - Безопасность аутентификации OAuth
 
 - **AC (GWT):**
   - **Given** истёкший access token, **When** POST `/api/hh/auto-apply`, **Then** `401` с RFC7807 и событие `auth.token_expired`
@@ -140,11 +140,17 @@ flowchart TD
   - **Given** недоступность HH.ru API, **When** вызов поиска вакансий, **Then** circuit breaker активируется после 3 неудачных попыток
   - **Given** сбой внешнего API, **When** критичная операция, **Then** graceful degradation с уведомлением пользователя
 
-### NFR-007 - Аудит и контроль доступа
+### NFR-011 - Circuit Breaker для внешних API
 
 - **AC (GWT):**
-  - **Given** запрос к данным другого пользователя, **When** проверка прав доступа, **Then** `404/403` без утечки информации о существовании данных
-  - **Given** любая операция с данными, **When** выполнение, **Then** запись в audit log с correlation_id
+  - **Given** 50% ошибок за 1 минуту в HH.ru API, **When** вызовы API, **Then** circuit breaker открывается на 30 секунд
+  - **Given** открытый circuit breaker, **When** проходит 30 секунд, **Then** выполняется пробный запрос для проверки восстановления
+
+### NFR-012 - Strict RBAC контроль доступа
+
+- **AC (GWT):**
+  - **Given** пользователь A пытается получить доступ к данным пользователя B, **When** выполняется запрос, **Then** возвращается 404 без утечки информации
+  - **Given** любая операция с данными, **When** выполнение, **Then** проходит проверки владения на Controller, Service и DAO уровнях
 
 ---
 
@@ -152,21 +158,21 @@ flowchart TD
 
 #### ADR-001 - OAuth 2.1 PKCE Implementation
 
-- **Context (угрозы/NFR):** T01, NFR-001; контур аутентификации
-- **Decision:** Реализация OAuth 2.1 с PKCE, TLL access token = 15 мин, обязательная валидация state параметра
+- **Context (угрозы/NFR):** T01, NFR-005; контур аутентификации
+- **Decision:** Реализация OAuth 2.1 с PKCE, TTL access token = 15 мин, обязательная валидация state параметра
 - **Trade-offs:** Усложнение flow аутентификации, требует изменения клиентской логики
 - **DoD:** 100% успешных аутентификаций используют PKCE, отсутствие передачи code_verifier в redirect URI
 - **Owner:** Security Team
 - **Evidence:** EVIDENCE/oauth-pkce-implementation.md
 
-#### ADR-002 - Adaptive HH.ru API Rate Limiting
+#### ADR-002 - External API Resilience Pattern
 
-- **Context:** T02, NFR-002; интеграция с HH.ru API
-- **Decision:** Adaptive rate limiting на основе ответов HH.ru API, очередь откликов, мониторинг использования квот
-- **Trade-offs:** Усложнение архитектуры, возможные задержки при обработке в очереди
-- **DoD:** 0 блокировок аккаунтов из-за превышения лимитов, задержка в очереди ≤ 30 минут
+- **Context:** T02, T04; NFR-002, NFR-008, NFR-011; интеграция с внешними API
+- **Decision:** Circuit breaker + retry с джиттером + кэширование, adaptive rate limiting, graceful degradation
+- **Trade-offs:** Усложнение архитектуры, возможные задержки при обработке
+- **DoD:** Circuit breaker корректно открывается/закрывается, время восстановления API ≤ 5 минут
 - **Owner:** Backend Team
-- **Evidence:** EVIDENCE/rate-limiting-implementation.md
+- **Evidence:** EVIDENCE/api-resilience-implementation.md
 
 #### ADR-003 - Application-Level PII Encryption
 
@@ -177,17 +183,35 @@ flowchart TD
 - **Owner:** Security Team
 - **Evidence:** EVIDENCE/pii-encryption-implementation.md
 
+#### ADR-004 - External API Resilience Pattern
+
+- **Context:** T02; NFR-008, NFR-011; интеграция с внешними API
+- **Decision:** Circuit breaker + retry с джиттером + кэширование, adaptive rate limiting, graceful degradation
+- **Trade-offs:** Усложнение архитектуры, возможные задержки при обработке
+- **DoD:** Circuit breaker корректно открывается/закрывается, время восстановления API ≤ 5 минут
+- **Owner:** Backend Team
+- **Evidence:** EVIDENCE/api-resilience-implementation.md
+
+#### ADR-005 - Strict RBAC Implementation
+
+- **Context:** T05, NFR-012; бизнес-логика приложения
+- **Decision:** Strict RBAC с проверками владения на всех уровнях, единообразные ошибки 404 для несанкционированного доступа
+- **Trade-offs:** Усложнение кодовой базы, требует строгой дисциплины разработки
+- **DoD:** 100% операций с данными проходят проверки владения, penetration testing не выявляет уязвимостей обхода RBAC
+- **Owner:** Security Team
+- **Evidence:** EVIDENCE/rbac-implementation.md
+
 ---
 
 ## 5) Трассировка Threat → NFR → ADR → (План)Проверки (TM5)
 
-| Threat | NFR     | ADR     | Чем проверяем (план/факт) |
-|--------|---------|---------|---------------------------|
-| T01    | NFR-001 | ADR-001 | DAST тесты OAuth flow → EVIDENCE/dast-oauth-test.pdf<br>Аудит событий аутентификации → EVIDENCE/auth-audit-sample.txt |
-| T02    | NFR-002 | ADR-002 | Нагрузочное тестирование rate limiting → EVIDENCE/load-test-results.md<br>Мониторинг 429 ошибок → EVIDENCE/rate-limit-monitoring.png |
-| T03    | NFR-006 | ADR-003 | Сканирование БД на наличие незашифрованного PII → EVIDENCE/db-scan-report.md<br>Анализ логов на утечки PII → EVIDENCE/log-analysis-report.txt |
-| T04    | NFR-008 | ADR-002 | Тестирование circuit breaker → EVIDENCE/circuit-breaker-tests.md<br>Мониторинг доступности внешних API → EVIDENCE/api-availability.png |
-| T05    | NFR-007 | need ADR | Тесты контроля доступа между пользователями → EVIDENCE/rbac-tests.md<br>Аудит операций доступа → EVIDENCE/access-audit-sample.txt |
+| Threat | NFR | ADR | Чем проверяем (план/факт) |
+|--------|-----|-----|---------------------------|
+| T01 | NFR-005 | ADR-001 | DAST тесты OAuth flow → EVIDENCE/dast-oauth-test.pdf<br>Аудит событий аутентификации → EVIDENCE/auth-audit-sample.txt |
+| T02 | NFR-002 | ADR-002 | Нагрузочное тестирование rate limiting → EVIDENCE/load-test-results.md<br>Мониторинг 429 ошибок → EVIDENCE/rate-limit-monitoring.png |
+| T03 | NFR-006 | ADR-003 | Сканирование БД на наличие незашифрованного PII → EVIDENCE/db-scan-report.md<br>Анализ логов на утечки PII → EVIDENCE/log-analysis-report.txt |
+| T04 | NFR-008, NFR-011 | ADR-004 | Тестирование circuit breaker → EVIDENCE/circuit-breaker-tests.md<br>Мониторинг доступности внешних API → EVIDENCE/api-availability.png |
+| T05 | NFR-012 | ADR-005 | Penetration testing RBAC → EVIDENCE/rbac-penetration-test.md<br>Аудит операций доступа → EVIDENCE/access-audit-sample.txt |
 
 ---
 
@@ -198,6 +222,7 @@ flowchart TD
 - **DAST:** OWASP ZAP против тестового стенда, отчёты в `EVIDENCE/dast-report-YYYY-MM-DD.pdf`
 - **Нагрузочное тестирование:** Jmeter для тестирования rate limiting и производительности, отчёты в `EVIDENCE/load-test-YYYY-MM-DD.md`
 - **Пентест:** Ручное тестирование безопасности OAuth flow и контроля доступа
+- **Аудит безопасности:** Регулярный аудит конфигураций и проверка соответствия политикам
 
 ---
 
@@ -206,7 +231,7 @@ flowchart TD
 - **TM1. Архитектура и границы доверия:** [x] 2 (Полная DFD с явными границами доверия, ролями и критичными интерфейсами)
 - **TM2. Покрытие STRIDE и уместность угроз:** [x] 2 (Все буквы STRIDE покрыты, добавлены доменно-специфичные угрозы)
 - **TM3. Приоритизация и Top-5:** [x] 2 (Четкая приоритизация с обоснованием, учтены дополнительные факторы)
-- **TM4. NFR + ADR под Top-5:** [x] 2 (3 ADR с четкими DoD, связи с угрозами и NFR)
-- **TM5. Трассировка → (план)проверок:** [x] 2 (Полная трассировка с конкретными планами проверок)
+- **TM4. NFR + ADR под Top-5:** [x] 2 (5 ADR с четкими DoD, полное покрытие Top-5 рисков)
+- **TM5. Трассировка → (план)проверок:** [x] 2 (Полная трассировка с конкретными планами проверок для всех Top-5 рисков)
 
 **Итог TM (сумма):** 10/10
