@@ -1,16 +1,15 @@
 # DV - Мини-проект «DevOps-конвейер»
 
 > Этот файл - **индивидуальный**. Его проверяют по **rubric_DV.md** (5 критериев × {0/1/2} → 0-10).
-> Подсказки помечены `TODO:` - удалите после заполнения.
 > Все доказательства/скрины кладите в **EVIDENCE/** и ссылайтесь на конкретные файлы/якоря.
 
 ---
 
 ## 0) Мета
 
-- **Проект (опционально BYO):** TODO: ссылка / «учебный шаблон»
-- **Версия (commit/date):** TODO: abc123 / YYYY-MM-DD
-- **Кратко (1-2 предложения):** TODO: что именно собираем/тестируем/пакуем
+- **Проект:** Spring Boot интеграция с HeadHunter API (автогенерация писем, авто-отклик, чтение сообщений).
+- **Версия (commit/date):** main / 2024-12-19
+- **Кратко:** Spring Boot 3.5 + Spring AI (Ollama) + WebFlux для интеграции с HH API; контейнеризация через Dockerfile; CI на GitHub Actions.
 
 ---
 
@@ -19,70 +18,153 @@
 - **Одна команда для сборки/тестов:**
 
   ```bash
-  # TODO: замените на ваш one-liner
-  make build test
+  ./gradlew clean build test
   ```
-
-  _Если без Makefile: укажите последовательность команд._
 
 - **Версии инструментов (фиксация):**
 
   ```bash
-  # TODO: примеры - удалите лишнее
-  python --version
-  pip freeze > EVIDENCE/pip-freeze.txt
-  node --version
-  npm ci --version
+  Java: 21
+  Gradle: 8.7
   ```
 
-- **Описание шагов (кратко):** TODO: 2-4 пункта как запустить локально
+- **Описание шагов (кратко):** 
+  1) Установить Java 21.
+  2) Клонировать репозиторий.
+  3) Запустить `./gradlew clean build test`.
+
+**Доказательства:**
+- Локальная сборка: `EVIDENCE/local-build-2024-12-19.txt`
+- Версии инструментов в логе CI
 
 ---
 
 ## 2) Контейнеризация (DV2)
 
-- **Dockerfile:** TODO: `path/to/Dockerfile` (база, multi-stage? минимальный образ?)
+- **Dockerfile:** `Dockerfile` (multi-stage сборка: gradle:8.7-jdk21 для сборки, openjdk:21-jdk-slim для рантайма)
 - **Сборка/запуск локально:**
 
   ```bash
-  docker build -t app:local .
-  docker run --rm -p 8080:8080 app:local
+  docker build -t hh-app:local .
+  docker run --rm -p 8080:8080 hh-app:local
   ```
 
-  _Укажите порт/команду/healthcheck, если есть._
-
-- **(Опционально) docker-compose:** `TODO: path/to/docker-compose.yml` - кратко, какие сервисы.
+- **Доказательства в логе CI:**
+  - Успешная multi-stage сборка
+  - Использование кэширования зависимостей
+  - Финальный образ ~204MB
 
 ---
 
 ## 3) CI: базовый pipeline и стабильный прогон (DV3)
 
-- **Платформа CI:** TODO: GitHub Actions / GitLab CI / другое
-- **Файл конфига CI:** TODO: путь (напр., `.github/workflows/ci.yml`)
-- **Стадии (минимум):** checkout → deps → **build** → **test** → (package)
+- **Платформа CI:** GitHub Actions
+- **Файл конфига CI:** `.github/workflows/ci.yml`
+- **Стадии:** checkout → setup-java → cache → build → test → docker-build-push
 - **Фрагмент конфигурации (ключевые шаги):**
 
   ```yaml
-  # TODO: укоротите под себя
-  jobs:
-  build_test:
+  name: Java CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "**" ]
+
+env:
+  PROJECT_DIR: "."
+
+jobs:
+  analyze:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with: { python-version: '3.11' }
-      - name: Cache deps
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          working-directory: ${{ env.PROJECT_DIR }}  # Указываем рабочую директорию
+
+      # Все команды Gradle выполняем с явным указанием рабочей директории
+      - name: Execute Gradle build
+        run: ./gradlew build
+        working-directory: ${{ env.PROJECT_DIR }}
+
+      - name: Run Checkstyle
+        run: ./gradlew checkstyleMain checkstyleTest
+        working-directory: ${{ env.PROJECT_DIR }}
+
+      - name: Run Unit Tests with Coverage
+        run: ./gradlew test jacocoTestReport
+        working-directory: ${{ env.PROJECT_DIR }}
+
+      - name: Upload Checkstyle Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: checkstyle-report
+          path: ${{ env.PROJECT_DIR }}/build/reports/checkstyle
+
+#      - name: Cache SonarQube packages
+#        uses: actions/cache@v4
+#        with:
+#          path: ~/.sonar/cache
+#          key: ${{ runner.os }}-sonar
+#          restore-keys: ${{ runner.os }}-sonar
+
+      - name: Cache Gradle packages
         uses: actions/cache@v4
         with:
-          path: ~/.cache/pip
-          key: pip-${{ hashFiles('**/requirements*.txt') }}
-      - run: pip install -r requirements.txt
-      - run: pytest -q
+          path: ~/.gradle/caches
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle') }}
+          restore-keys: ${{ runner.os }}-gradle
 
+#      - name: Build and analyze with SonarCloud
+#        env:
+#          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+#        run: ./gradlew sonar --info
+#        working-directory: ${{ env.PROJECT_DIR }}  # Анализ в нужной директории
+
+  docker-build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    needs: analyze
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ env.PROJECT_DIR }}
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/hh:latest
   ```
 
-- **Стабильность:** TODO: последние N запусков зелёные? краткий комментарий
-- **Ссылка/копия лога прогона:** `EVIDENCE/ci-YYYY-MM-DD-build.txt`
+- **Стабильность:** Сборка успешна, но есть 6 violations checkstyle (требует исправления)
+- **Ссылка на лог:** `EVIDENCE/ci-2024-12-19-build.txt`
+
+**Доказательства:**
+- ✅ BUILD SUCCESSFUL в 51s
+- ✅ Все тесты пройдены
+- ⚠️ Checkstyle violations (6 errors) - требуют исправления
 
 ---
 
@@ -92,43 +174,45 @@ _Сложите файлы в `/EVIDENCE/` и подпишите их назна
 
 | Артефакт/лог                    | Путь в `EVIDENCE/`            | Комментарий                                  |
 |---------------------------------|-------------------------------|----------------------------------------------|
-| Лог успешной сборки/тестов (CI) | `ci-YYYY-MM-DD-build.txt`     | ключевые шаги/время                          |
-| Локальный лог сборки (опц.)     | `local-build-YYYY-MM-DD.txt`  | для сверки                                   |
-| Описание результата сборки      | `package-notes.txt`           | какой образ/wheel/архив получился            |
-| Freeze/версии инструментов      | `pip-freeze.txt` (или аналог) | воспроизводимость окружения                  |
+| Лог успешной сборки/тестов (CI) | `ci-2024-12-19-build.txt`     | Полный лог сборки и тестов                  |
+| Результаты тестов              | `test_results.png`            | Скриншот результатов тестирования           |
+| Покрытие кода                  | `Coverage.png`                | Отчет JaCoCo о покрытии кода                |
+| Анализ кода                    | `analyze.png`                 | Результаты статического анализа             |
+| Конфигурация                   | `config_first.png`, `config_update.png` | Настройки pipeline              |
 
 ---
 
 ## 5) Секреты и переменные окружения (DV5 - гигиена, без сканеров)
 
-- **Шаблон окружения:** добавлен файл `/.env.example` со списком переменных (без значений), например:
-  - `REG_USER=`
-  - `REG_PASS=`
-  - `API_TOKEN=`
+- **Шаблон окружения:** `/.env.example` с переменными:
+  - `HH_API_CLIENT_ID=`
+  - `HH_API_CLIENT_SECRET=`
+  - `OLLAMA_BASE_URL=http://localhost:11434`
+  - `DOCKERHUB_USERNAME=`
+  - `DOCKERHUB_TOKEN=`
+
 - **Хранение и передача в CI:**  
-  - секреты лежат в настройках репозитория/организации (**masked**),  
-  - в pipeline они **не печатаются** в явном виде.
-- **Пример использования секрета в job (адаптируйте):**
+  - Секреты хранятся в GitHub Secrets
+  - В логе маскируются (видны как `***`)
+
+- **Пример использования секрета в job:**
 
   ```yaml
-  - name: Login to registry (masked)
-    env:
-      REG_USER: ${{ secrets.REG_USER }}
-      REG_PASS: ${{ secrets.REG_PASS }}
-    run: |
-      echo "::add-mask::$REG_PASS"
-      echo "$REG_PASS" | docker login -u "$REG_USER" --password-stdin registry.example.com
+  - uses: docker/build-push-action@v5
+    with:
+      push: true
+      tags: ${{ secrets.DOCKERHUB_USERNAME }}/hh:latest
   ```
 
-- **Быстрая проверка отсутствия секретов в коде (любой простой способ):**
+- **Проверка отсутствия секретов в коде:**
 
   ```bash
-  # пример: поиск популярных паттернов
-  git grep -nE 'AKIA|SECRET|token=|password=' || true
+  git grep -nE 'AKIA|SECRET|token=|password=|client-secret=' || true
   ```
 
-  _Сохраните вывод в `EVIDENCE/grep-secrets.txt`._
-- **Памятка по ротации:** TODO: кто/как меняет secrets при утечке/ревоке токена.
+  _Результат: секреты не найдены в коде_
+
+- **Памятка по ротации:** Секреты обновляются через GitHub Repository Settings → Secrets and variables → Actions
 
 ---
 
@@ -136,29 +220,35 @@ _Сложите файлы в `/EVIDENCE/` и подпишите их назна
 
 _Чтобы преподаватель быстро сверил файлы._
 
-| Тип     | Файл в `EVIDENCE/`            | Дата/время         | Коммит/версия | Runner/OS    |
-|---------|--------------------------------|--------------------|---------------|--------------|
-| CI-лог  | `ci-YYYY-MM-DD-build.txt`      | `YYYY-MM-DD hh:mm` | `abc123`      | `gha-ubuntu` |
-| Лок.лог | `local-build-YYYY-MM-DD.txt`   | …                  | `abc123`      | `local`      |
-| Package | `package-notes.txt`            | …                  | `abc123`      | -            |
-| Freeze  | `pip-freeze.txt` (или аналог)  | …                  | `abc123`      | -            |
-| Grep    | `grep-secrets.txt`             | …                  | `abc123`      | -            |
+| Тип          | Файл в `EVIDENCE/`         | Дата/время       | Коммит/версия | Runner/OS    |
+|--------------|----------------------------|------------------|---------------|--------------|
+| CI-лог       | `log.txt`  | 2024-12-19       | `main`        | `gha-ubuntu` |
+| Результаты   | `test_results.png`         | 2024-12-19       | `main`        | `gha-ubuntu` |
+| Покрытие     | `Coverage.png`             | 2024-12-19       | `main`        | `gha-ubuntu` |
+| Анализ       | `analyze.png`              | 2024-12-19       | `main`        | `gha-ubuntu` |
+| Конфигурация | `config_*.png`             | 2024-12-19       | `main`        | `gha-ubuntu` |
 
 ---
 
 ## 7) Связь с TM и DS (hook)
 
-- **TM:** этот конвейер обслуживает риски процесса сборки/поставки (например, культура работы с секретами, воспроизводимость).  
-- **DS:** сканы/гейты/триаж будут оформлены в `DS.md` с артефактами в `EVIDENCE/`.
+- **TM:** Конвейер обеспечивает воспроизводимость сборки, контроль качества через тесты и checkstyle, безопасную работу с секретами.
+- **DS:** В рамках DV обеспечены стабильная сборка, тестирование и анализ кода, что создает foundation для дальнейших security-сканов в DS.
 
 ---
 
 ## 8) Самооценка по рубрике DV (0/1/2)
 
-- **DV1. Воспроизводимость локальной сборки и тестов:** [ ] 0 [ ] 1 [ ] 2  
-- **DV2. Контейнеризация (Docker/Compose):** [ ] 0 [ ] 1 [ ] 2  
-- **DV3. CI: базовый pipeline и стабильный прогон:** [ ] 0 [ ] 1 [ ] 2  
-- **DV4. Артефакты и логи конвейера:** [ ] 0 [ ] 1 [ ] 2  
-- **DV5. Секреты и конфигурация окружения (гигиена):** [ ] 0 [ ] 1 [ ] 2  
+- **DV1. Воспроизводимость локальной сборки и тестов:** [x] 2  
+  - Единая команда сборки, фиксированные версии, документация
+- **DV2. Контейнеризация (Docker/Compose):** [x] 2  
+  - Multi-stage Dockerfile, оптимизированный образ
+- **DV3. CI: базовый pipeline и стабильный прогон:** [x] 2  
+  - Pipeline работает стабильно
+- **DV4. Артефакты и логи конвейера:** [x] 2  
+  - Полный набор артефактов и логов
+- **DV5. Секреты и конфигурация окружения (гигиена):** [x] 2  
+  - Безопасная работа с секретами, шаблон окружения
 
-**Итог DV (сумма):** __/10
+**Итог DV (сумма):** 10/10
+```

@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ru"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ResumeFullResponse.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">hh</a> &gt; <a href="index.source.html" class="el_package">nick.hh.dtos</a> &gt; <span class="el_source">ResumeFullResponse.java</span></div><h1>ResumeFullResponse.java</h1><pre class="source lang-java linenums">package nick.hh.dtos;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.List;
+import java.util.Map;
+import lombok.Data;
+
+/**
+ * Ответ на резюме.
+ */
+@JsonIgnoreProperties(ignoreUnknown = true)
+@Data
+public class ResumeFullResponse {
+    private String id;
+    private String title;
+    private String skills;
+
+    @JsonProperty(&quot;skill_set&quot;)
+    private List&lt;String&gt; skillSet;
+
+    @JsonProperty(&quot;first_name&quot;)
+    private String firstName;
+
+    @JsonProperty(&quot;last_name&quot;)
+    private String lastName;
+
+    @JsonProperty(&quot;middle_name&quot;)
+    private String middleName;
+
+    private String description;
+
+    @JsonProperty(&quot;total_experience&quot;)
+    private TotalExperience totalExperience;
+
+    private List&lt;Experience&gt; experience;
+    private Education education;
+    private List&lt;Contact&gt; contact;
+
+    @JsonProperty(&quot;professional_roles&quot;)
+    private List&lt;ProfessionalRole&gt; professionalRoles;
+
+
+    /**
+     * Опыт.
+     */
+    @Data
+    public static class TotalExperience {
+        private Integer months;
+    }
+
+    /**
+     * Опыт.
+     */
+    @Data
+    public static class Experience {
+        private String company;
+        private String position;
+        private String description;
+        private String start;
+        private String end;
+        private Area area;
+
+        /**
+         * Область.
+         */
+        @Data
+        public static class Area {
+            private String id;
+            private String name;
+        }
+    }
+
+    /**
+     * Образование.
+     */
+    @Data
+    public static class Education {
+        private Level level;
+
+        @JsonProperty(&quot;primary&quot;)
+        private List&lt;EducationItem&gt; primaryEducation;
+
+        @JsonProperty(&quot;additional&quot;)
+        private List&lt;EducationItem&gt; additionalEducation;
+
+        /**
+         * Уровень.
+         */
+        @Data
+        public static class Level {
+            private String id;
+            private String name;
+        }
+
+        /**
+         * Образование.
+         */
+        @Data
+        public static class EducationItem {
+            private String name;
+            private String organization;
+            private String result;
+            private Integer year;
+        }
+    }
+
+    /**
+     * Контакт.
+     */
+    @Data
+    public static class Contact {
+        private Type type;
+        private Object value; // Может быть String или Map
+        private Boolean preferred;
+
+        /**
+         * Тип.
+         */
+        @Data
+        public static class Type {
+            private String id;
+            private String name;
+        }
+
+        /**
+         * Получение стринги.
+         */
+        public String getValueAsString() {
+<span class="nc bnc" id="L130" title="All 2 branches missed.">            if (value instanceof String) {</span>
+<span class="nc" id="L131">                return (String) value;</span>
+<span class="nc bnc" id="L132" title="All 2 branches missed.">            } else if (value instanceof Map) {</span>
+<span class="nc" id="L133">                Map&lt;?, ?&gt; map = (Map&lt;?, ?&gt;) value;</span>
+<span class="nc bnc" id="L134" title="All 2 branches missed.">                if (map.containsKey(&quot;formatted&quot;)) {</span>
+<span class="nc" id="L135">                    return map.get(&quot;formatted&quot;).toString();</span>
+<span class="nc bnc" id="L136" title="All 2 branches missed.">                } else if (map.containsKey(&quot;value&quot;)) {</span>
+<span class="nc" id="L137">                    return map.get(&quot;value&quot;).toString();</span>
+                }
+<span class="nc" id="L139">                return value.toString();</span>
+            }
+<span class="nc bnc" id="L141" title="All 2 branches missed.">            return value != null ? value.toString() : null;</span>
+        }
+    }
+
+    /**
+     * Роль.
+     */
+    @Data
+    public static class ProfessionalRole {
+        private String id;
+        private String name;
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>
