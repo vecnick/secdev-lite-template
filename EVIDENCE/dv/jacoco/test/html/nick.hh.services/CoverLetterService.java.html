@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ru"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CoverLetterService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">hh</a> &gt; <a href="index.source.html" class="el_package">nick.hh.services</a> &gt; <span class="el_source">CoverLetterService.java</span></div><h1>CoverLetterService.java</h1><pre class="source lang-java linenums">package nick.hh.services;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import nick.hh.dtos.ResumeFullResponse;
+import nick.hh.dtos.vacansies.VacancyResponse;
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+/**
+ * Получение резюме.
+ */
+@Service
+public class CoverLetterService {
+
+    private final ChatClient chatClient;
+
+    /**
+     * Получение резюме.
+     */
+    @Autowired
+<span class="nc" id="L25">    public CoverLetterService(ChatClient chatClient) {</span>
+<span class="nc" id="L26">        this.chatClient = chatClient;</span>
+<span class="nc" id="L27">    }</span>
+
+    /**
+     * Получение резюме.
+     */
+    public String generateCoverLetter(ResumeFullResponse resume,
+                                      VacancyResponse vacancy,
+                                      String customContext) {
+<span class="nc" id="L35">        String prompt = buildPrompt(resume, vacancy, customContext);</span>
+<span class="nc" id="L36">        return chatClient.prompt()</span>
+<span class="nc" id="L37">            .user(prompt)</span>
+<span class="nc" id="L38">            .call()</span>
+<span class="nc" id="L39">            .content();</span>
+    }
+
+    private String buildPrompt(ResumeFullResponse resume, VacancyResponse vacancy, String customContext) {
+<span class="nc" id="L43">        String fullName = String.format(&quot;%s %s %s&quot;,</span>
+<span class="nc" id="L44">            resume.getLastName(),</span>
+<span class="nc" id="L45">            resume.getFirstName(),</span>
+<span class="nc" id="L46">            Optional.ofNullable(resume.getMiddleName()).orElse(&quot;&quot;)</span>
+<span class="nc" id="L47">        ).trim();</span>
+
+<span class="nc" id="L49">        String experience = formatExperience(</span>
+<span class="nc bnc" id="L50" title="All 2 branches missed.">            resume.getTotalExperience() != null</span>
+<span class="nc" id="L51">                    ? resume.getTotalExperience().getMonths() : 0</span>
+        );
+
+        // Получаем 5 ключевых навыков, релевантных вакансии
+<span class="nc" id="L55">        String topSkills = extractTopSkills(resume, vacancy, 5);</span>
+
+        // Форматируем опыт работы для примеров
+<span class="nc" id="L58">        String workExamples = formatWorkExamples(resume);</span>
+
+<span class="nc" id="L60">        return String.format(&quot;&quot;&quot;</span>
+        **Задача**: Создать персонализированное сопроводительное письмо для %s на позицию &quot;%s&quot; в %s
+        
+        **Контекст компании**: %s
+        
+        **Требования к письму**:
+        1. Объем: 120-150 слов
+        2. Тон: энергичный, профессиональный, без шаблонных фраз
+        3. Избегать перечисления навыков - вместо этого показать их применение
+        4. Использовать конкретные примеры из опыта работы
+        5. Согласование рода по ФИО кандидата
+        6. Естественный русский язык без грамматических ошибок
+        
+        **Структура**:
+        [Обращение] Уважаемая команда [Компания]!
+        [Введение] Представление + позиция + экспресс-соответствие
+        [Основная часть]:
+          - 2 ключевых требования вакансии и конкретные примеры их реализации
+          - Уникальный вклад в проекты (с цифрами если возможно)
+          - Почему именно эта компания? (конкретная мотивация)
+        [Заключение]: Призыв к действию + контакты
+        
+        **Данные кандидата**:
+        ФИО: %s (%s)
+        Опыт: %s
+        Ключевые навыки для этой вакансии: %s
+        Примеры проектов: %s
+        
+        **Описание вакансии**: 
+        %s
+        
+        **Инструкции**:
+        1. Сгенерировать письмо как будто его пишет сам кандидат
+        2. Использовать активные глаголы: &quot;реализовал&quot;, &quot;оптимизировал&quot;, &quot;увеличил&quot;
+        3. Связать 1-2 навыка из резюме с требованиями вакансии
+        4. Избегать общих фраз вроде &quot;быстро обучаюсь&quot;
+        5. В подписи использовать реальные контакты из резюме
+        6. Если имя женское то использовать женский род при написании выражений, например: я делала или я управляла
+        7. Если имя мужское то использовать мужской род при написании выражений, например: я делал или я управлял
+        8. Проверить правописание и правила русского языка после написания письма
+        9. Если есть незаполненные поля с квадратными скобками то не писать их вовсе
+        
+        **Дополнительные указания от пользователя**:
+        %s
+        &quot;&quot;&quot;,
+            fullName,
+<span class="nc" id="L106">            vacancy.getName(),</span>
+<span class="nc bnc" id="L107" title="All 2 branches missed.">            vacancy.getEmployer() != null ? vacancy.getEmployer().getName() : &quot;&quot;,</span>
+<span class="nc bnc" id="L108" title="All 2 branches missed.">            vacancy.getDescription().length() &gt; 1000</span>
+<span class="nc" id="L109">                    ? vacancy.getDescription().substring(0, 1000) + &quot;...&quot; : vacancy.getDescription(),</span>
+            fullName,
+<span class="nc bnc" id="L111" title="All 4 branches missed.">            resume.getProfessionalRoles() != null &amp;&amp; !resume.getProfessionalRoles().isEmpty()</span>
+<span class="nc" id="L112">                    ? resume.getProfessionalRoles().get(0).getName() : &quot;Специалист&quot;,</span>
+            experience,
+            topSkills,
+            workExamples,
+<span class="nc" id="L116">            vacancy.getDescription(),</span>
+            customContext
+        );
+    }
+
+    // Дополнительные вспомогательные методы
+    private String extractTopSkills(ResumeFullResponse resume, VacancyResponse vacancy, int maxSkills) {
+<span class="nc bnc" id="L123" title="All 2 branches missed.">        if (resume.getSkillSet() == null) {</span>
+<span class="nc" id="L124">            return &quot;&quot;;</span>
+        }
+
+        // Фильтрация навыков, упомянутых в описании вакансии
+<span class="nc" id="L128">        return resume.getSkillSet().stream()</span>
+<span class="nc" id="L129">            .filter(skill -&gt; vacancy.getDescription().toLowerCase().contains(skill.toLowerCase()))</span>
+<span class="nc" id="L130">            .limit(maxSkills)</span>
+<span class="nc" id="L131">            .collect(Collectors.joining(&quot;, &quot;));</span>
+    }
+
+    private String formatWorkExamples(ResumeFullResponse resume) {
+<span class="nc bnc" id="L135" title="All 4 branches missed.">        if (resume.getExperience() == null || resume.getExperience().isEmpty()) {</span>
+<span class="nc" id="L136">            return &quot;&quot;;</span>
+        }
+
+<span class="nc" id="L139">        return resume.getExperience().stream()</span>
+<span class="nc" id="L140">            .limit(2)</span>
+<span class="nc" id="L141">            .map(exp -&gt; String.format(&quot;- %s в %s: %s&quot;,</span>
+<span class="nc" id="L142">                exp.getPosition(),</span>
+<span class="nc" id="L143">                exp.getCompany(),</span>
+<span class="nc bnc" id="L144" title="All 2 branches missed.">                exp.getDescription().length() &gt; 500</span>
+<span class="nc" id="L145">                        ? exp.getDescription().substring(0, 500) + &quot;...&quot; : exp.getDescription()))</span>
+<span class="nc" id="L146">            .collect(Collectors.joining(&quot;\n&quot;));</span>
+    }
+
+    private String formatExperience(int months) {
+<span class="nc" id="L150">        int years = months / 12;</span>
+<span class="nc" id="L151">        int remainingMonths = months % 12;</span>
+
+<span class="nc" id="L153">        List&lt;String&gt; parts = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L154" title="All 2 branches missed.">        if (years &gt; 0) {</span>
+<span class="nc" id="L155">            parts.add(years + &quot; &quot; + pluralize(years, &quot;год&quot;, &quot;года&quot;, &quot;лет&quot;));</span>
+        }
+<span class="nc bnc" id="L157" title="All 2 branches missed.">        if (remainingMonths &gt; 0) {</span>
+<span class="nc" id="L158">            parts.add(remainingMonths + &quot; &quot;</span>
+<span class="nc" id="L159">                    + pluralize(remainingMonths, &quot;месяц&quot;, &quot;месяца&quot;, &quot;месяцев&quot;));</span>
+        }
+
+<span class="nc bnc" id="L162" title="All 2 branches missed.">        return parts.isEmpty() ? &quot;Без опыта&quot; : String.join(&quot; &quot;, parts);</span>
+    }
+
+    private String pluralize(int number, String one, String few, String many) {
+<span class="nc bnc" id="L166" title="All 4 branches missed.">        if (number % 10 == 1 &amp;&amp; number % 100 != 11) {</span>
+<span class="nc" id="L167">            return one;</span>
+        }
+<span class="nc bnc" id="L169" title="All 8 branches missed.">        if (number % 10 &gt;= 2 &amp;&amp; number % 10 &lt;= 4 &amp;&amp; (number % 100 &lt; 10 || number % 100 &gt;= 20)) {</span>
+<span class="nc" id="L170">            return few;</span>
+        }
+<span class="nc" id="L172">        return many;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

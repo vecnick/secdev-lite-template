@@ -1,0 +1,288 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ru"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>HhApiService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">hh</a> &gt; <a href="index.source.html" class="el_package">nick.hh.services</a> &gt; <span class="el_source">HhApiService.java</span></div><h1>HhApiService.java</h1><pre class="source lang-java linenums">package nick.hh.services;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
+import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
+import nick.hh.dtos.ResumeFullResponse;
+import nick.hh.dtos.negotiations.NegotiationItem;
+import nick.hh.dtos.negotiations.NegotiationMessage;
+import nick.hh.dtos.negotiations.NegotiationMessagesResponse;
+import nick.hh.dtos.negotiations.NegotiationsResponse;
+import nick.hh.dtos.vacansies.HhSearchResponse;
+import nick.hh.dtos.vacansies.VacancyItem;
+import nick.hh.dtos.vacansies.VacancyResponse;
+import nick.hh.dtos.vacansies.VacancySearchRequest;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatusCode;
+import org.springframework.http.MediaType;
+import org.springframework.http.client.MultipartBodyBuilder;
+import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
+import org.springframework.web.reactive.function.BodyInserters;
+import org.springframework.web.reactive.function.client.ClientResponse;
+import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.util.UriComponents;
+import org.springframework.web.util.UriComponentsBuilder;
+import reactor.core.publisher.Mono;
+
+/**
+ * Получение резюме.
+ */
+<span class="fc" id="L36">@Slf4j</span>
+@Service
+public class HhApiService {
+
+    private final WebClient webClient;
+    @Setter
+    private String accessToken;
+
+    @Value(&quot;${hh.api.base-url}&quot;)
+    private String baseUrl;
+
+    /**
+     * Получение резюме.
+     */
+<span class="fc" id="L50">    public HhApiService(@Value(&quot;${hh.api.base-url}&quot;) String baseUrl) {</span>
+<span class="fc" id="L51">        this.baseUrl = baseUrl;</span>
+<span class="fc" id="L52">        this.webClient = WebClient.builder()</span>
+<span class="fc" id="L53">            .baseUrl(baseUrl)</span>
+<span class="fc" id="L54">            .defaultHeader(&quot;User-Agent&quot;, &quot;HH-Integration-Service&quot;)</span>
+<span class="fc" id="L55">            .build();</span>
+<span class="fc" id="L56">    }</span>
+
+    /**
+     * Получение резюме.
+     */
+    public boolean hasToken() {
+<span class="fc bfc" id="L62" title="All 4 branches covered.">        return accessToken != null &amp;&amp; !accessToken.isEmpty();</span>
+    }
+
+    private WebClient.RequestHeadersSpec&lt;?&gt; authenticated(WebClient.RequestHeadersSpec&lt;?&gt; spec) {
+<span class="pc bpc" id="L66" title="1 of 2 branches missed.">        if (accessToken == null) {</span>
+<span class="nc" id="L67">            throw new IllegalStateException(&quot;Access token is not available. Please authenticate first.&quot;);</span>
+        }
+<span class="fc" id="L69">        return spec.header(&quot;Authorization&quot;, &quot;Bearer &quot; + accessToken);</span>
+    }
+
+    /**
+     * Получение резюме.
+     */
+    public ResumeFullResponse getResumeById(String id) {
+<span class="fc" id="L76">        return authenticated(webClient.get().uri(&quot;/resumes/{id}&quot;, id))</span>
+<span class="fc" id="L77">            .retrieve()</span>
+<span class="pc" id="L78">            .onStatus(httpStatus -&gt; httpStatus.isError(), response -&gt; handleErrorResponse(response))</span>
+<span class="fc" id="L79">            .bodyToMono(ResumeFullResponse.class)</span>
+<span class="fc" id="L80">            .doOnSuccess(resume -&gt; {</span>
+<span class="pc bpc" id="L81" title="1 of 2 branches missed.">                if (resume != null) {</span>
+<span class="fc" id="L82">                    log.info(&quot;Received resume with ID: {}, Title: {}&quot;, resume.getId(), resume.getTitle());</span>
+<span class="pc bpc" id="L83" title="1 of 2 branches missed.">                    if (resume.getContact() != null) {</span>
+<span class="nc" id="L84">                        resume.getContact().forEach(contact -&gt;</span>
+<span class="nc" id="L85">                            log.debug(&quot;Contact: Type={}, Value={}&quot;,</span>
+<span class="nc" id="L86">                                contact.getType(),</span>
+<span class="nc" id="L87">                                contact.getValueAsString()));</span>
+                    }
+                } else {
+<span class="nc" id="L90">                    log.warn(&quot;Received null resume for ID: {}&quot;, id);</span>
+                }
+<span class="fc" id="L92">            })</span>
+<span class="pc" id="L93">            .doOnError(e -&gt; log.error(&quot;Error fetching resume by ID {}: {}&quot;, id, e.getMessage()))</span>
+<span class="fc" id="L94">            .block();</span>
+    }
+
+    /**
+     * Получение резюме.
+     */
+    public VacancyResponse getVacancy(String vacancyId) {
+<span class="fc" id="L101">        return authenticated(webClient.get().uri(&quot;/vacancies/{id}&quot;, vacancyId))</span>
+<span class="fc" id="L102">            .retrieve()</span>
+<span class="pc" id="L103">            .onStatus(httpStatus -&gt; httpStatus.isError(), response -&gt; handleErrorResponse(response))</span>
+<span class="fc" id="L104">            .bodyToMono(VacancyResponse.class)</span>
+<span class="fc" id="L105">            .doOnSuccess(vacancy -&gt; {</span>
+<span class="pc bpc" id="L106" title="1 of 2 branches missed.">                if (vacancy != null) {</span>
+<span class="fc" id="L107">                    log.info(&quot;Received vacancy with ID: {}, Name: {}&quot;, vacancy.getId(), vacancy.getName());</span>
+                } else {
+<span class="nc" id="L109">                    log.warn(&quot;Received null vacancy for ID: {}&quot;, vacancyId);</span>
+                }
+<span class="fc" id="L111">            })</span>
+<span class="pc" id="L112">            .doOnError(e -&gt; log.error(&quot;Error fetching vacancy by ID {}: {}&quot;, vacancyId, e.getMessage()))</span>
+<span class="fc" id="L113">            .block();</span>
+    }
+
+    /**
+     * Получение резюме.
+     */
+    public void sendApplication(String vacancyId, String resumeId, String coverLetter) {
+        // Проверка параметров
+<span class="fc bfc" id="L121" title="All 2 branches covered.">        if (!StringUtils.hasText(vacancyId)) {</span>
+<span class="fc" id="L122">            throw new IllegalArgumentException(&quot;vacancyId must not be null or empty&quot;);</span>
+        }
+<span class="pc bpc" id="L124" title="1 of 2 branches missed.">        if (!StringUtils.hasText(resumeId)) {</span>
+<span class="fc" id="L125">            throw new IllegalArgumentException(&quot;resumeId must not be null or empty&quot;);</span>
+        }
+
+<span class="nc" id="L128">        log.info(&quot;Sending application for vacancy: {}, resume: {}&quot;, vacancyId, resumeId);</span>
+
+<span class="nc" id="L130">        MultipartBodyBuilder bodyBuilder = new MultipartBodyBuilder();</span>
+<span class="nc" id="L131">        bodyBuilder.part(&quot;vacancy_id&quot;, vacancyId);</span>
+<span class="nc" id="L132">        bodyBuilder.part(&quot;resume_id&quot;, resumeId);</span>
+<span class="nc" id="L133">        bodyBuilder.part(&quot;message&quot;, coverLetter);</span>
+
+<span class="nc" id="L135">        log.info(&quot;Form data parameters: vacancy_id={}, resume_id={}&quot;, vacancyId, resumeId);</span>
+
+<span class="nc" id="L137">        authenticated(webClient.post()</span>
+<span class="nc" id="L138">            .uri(&quot;/negotiations&quot;)</span>
+<span class="nc" id="L139">            .contentType(MediaType.MULTIPART_FORM_DATA)</span>
+<span class="nc" id="L140">            .body(BodyInserters.fromMultipartData(bodyBuilder.build())))</span>
+<span class="nc" id="L141">            .retrieve()</span>
+<span class="nc" id="L142">            .onStatus(HttpStatusCode::isError, this::handleErrorResponse)</span>
+<span class="nc" id="L143">            .toBodilessEntity()</span>
+<span class="nc" id="L144">            .doOnSuccess(response -&gt; {</span>
+<span class="nc" id="L145">                log.info(&quot;Application sent successfully&quot;);</span>
+                // Проверяем заголовок Location в ответе
+<span class="nc bnc" id="L147" title="All 2 branches missed.">                if (response.getHeaders().containsKey(HttpHeaders.LOCATION)) {</span>
+<span class="nc" id="L148">                    log.info(&quot;Negotiation created at: {}&quot;, response.getHeaders().getFirst(HttpHeaders.LOCATION));</span>
+                }
+<span class="nc" id="L150">            })</span>
+<span class="nc" id="L151">            .doOnError(e -&gt; log.error(&quot;Error sending application&quot;, e))</span>
+<span class="nc" id="L152">            .block();</span>
+<span class="nc" id="L153">    }</span>
+
+    /**
+     * Получение резюме.
+     */
+    public List&lt;VacancyItem&gt; searchVacancies(VacancySearchRequest request, int page) {
+<span class="nc" id="L159">        UriComponents uriComponents = UriComponentsBuilder.newInstance()</span>
+<span class="nc" id="L160">            .scheme(&quot;https&quot;)</span>
+<span class="nc" id="L161">            .host(&quot;api.hh.ru&quot;)</span>
+<span class="nc" id="L162">            .path(&quot;/vacancies&quot;)</span>
+<span class="nc" id="L163">            .queryParam(&quot;text&quot;, request.getText())</span>
+<span class="nc" id="L164">            .queryParam(&quot;per_page&quot;, 20)</span>
+<span class="nc" id="L165">            .queryParam(&quot;page&quot;, page)</span>
+<span class="nc" id="L166">            .build();</span>
+
+<span class="nc" id="L168">        log.info(&quot;Searching vacancies with URI: {}&quot;, uriComponents.toUriString());</span>
+
+<span class="nc" id="L170">        return authenticated(webClient.get()</span>
+<span class="nc" id="L171">            .uri(uriComponents.toUri()))</span>
+<span class="nc" id="L172">            .retrieve()</span>
+<span class="nc" id="L173">            .bodyToMono(new ParameterizedTypeReference&lt;HhSearchResponse&lt;VacancyItem&gt;&gt;() {})</span>
+<span class="nc" id="L174">            .block()</span>
+<span class="nc" id="L175">            .getItems();</span>
+    }
+
+    private Mono&lt;Throwable&gt; handleErrorResponse(ClientResponse response) {
+<span class="nc" id="L179">        return response.bodyToMono(String.class)</span>
+<span class="nc" id="L180">            .flatMap(body -&gt; {</span>
+<span class="nc" id="L181">                String errorMessage = String.format(&quot;HTTP %d | URL: %s | Body: %s&quot;,</span>
+<span class="nc" id="L182">                    response.statusCode().value(),</span>
+<span class="nc" id="L183">                    response.request().getURI(),</span>
+                    body);
+
+<span class="nc" id="L186">                log.error(&quot;API Error: {}&quot;, errorMessage);</span>
+<span class="nc" id="L187">                return Mono.error(new RuntimeException(errorMessage));</span>
+            });
+    }
+
+    /**
+     * Получение резюме.
+     */
+    public List&lt;NegotiationMessage&gt; getLatestMessages(int maxNegotiations) {
+<span class="pc bpc" id="L195" title="1 of 2 branches missed.">        if (!hasToken()) {</span>
+<span class="fc" id="L196">            log.warn(&quot;Access token is not available for message polling&quot;);</span>
+<span class="fc" id="L197">            return Collections.emptyList();</span>
+        }
+
+        try {
+            // Шаг 1: Получить список последних откликов (negotiations)
+<span class="nc" id="L202">            String negotiationsUri = UriComponentsBuilder.fromUriString(baseUrl + &quot;/negotiations&quot;)</span>
+<span class="nc" id="L203">                .queryParam(&quot;order_by&quot;, &quot;updated_at&quot;)</span>
+<span class="nc" id="L204">                .queryParam(&quot;order&quot;, &quot;desc&quot;)</span>
+<span class="nc" id="L205">                .queryParam(&quot;has_updates&quot;, true)</span>
+<span class="nc" id="L206">                .queryParam(&quot;per_page&quot;, 50) // Берем больше для фильтрации</span>
+<span class="nc" id="L207">                .toUriString();</span>
+
+<span class="nc" id="L209">            NegotiationsResponse negotiationsResponse = authenticated(webClient.get().uri(negotiationsUri))</span>
+<span class="nc" id="L210">                .retrieve()</span>
+<span class="nc" id="L211">                .onStatus(HttpStatusCode::isError, this::handleErrorResponse)</span>
+<span class="nc" id="L212">                .bodyToMono(NegotiationsResponse.class)</span>
+<span class="nc" id="L213">                .doOnSuccess(res -&gt; {</span>
+<span class="nc bnc" id="L214" title="All 4 branches missed.">                    if (res != null &amp;&amp; res.getItems() != null) {</span>
+<span class="nc" id="L215">                        log.info(&quot;Found {} negotiations before filtering&quot;, res.getItems().size());</span>
+                    }
+<span class="nc" id="L217">                })</span>
+<span class="nc" id="L218">                .block();</span>
+
+<span class="nc bnc" id="L220" title="All 4 branches missed.">            if (negotiationsResponse == null || negotiationsResponse.getItems() == null) {</span>
+<span class="nc" id="L221">                log.info(&quot;No negotiations found&quot;);</span>
+<span class="nc" id="L222">                return Collections.emptyList();</span>
+            }
+
+            // Фильтруем по статусам: response_received (ожидание), invitation (приглашение), interview (собеседование)
+<span class="nc" id="L226">            List&lt;NegotiationItem&gt; filteredNegotiations = negotiationsResponse.getItems().stream()</span>
+<span class="nc bnc" id="L227" title="All 2 branches missed.">                .filter(item -&gt; item.getState() != null)</span>
+<span class="nc" id="L228">                .filter(item -&gt; {</span>
+<span class="nc" id="L229">                    String stateId = item.getState().getId();</span>
+<span class="nc bnc" id="L230" title="All 2 branches missed.">                    return &quot;response&quot;.equals(stateId)</span>
+<span class="nc bnc" id="L231" title="All 2 branches missed.">                            || &quot;invitation&quot;.equals(stateId);</span>
+                })
+<span class="nc" id="L233">                .limit(maxNegotiations)</span>
+<span class="nc" id="L234">                .collect(Collectors.toList());</span>
+
+<span class="nc" id="L236">            log.info(&quot;Found {} negotiations after filtering&quot;, filteredNegotiations.size());</span>
+
+<span class="nc" id="L238">            List&lt;NegotiationMessage&gt; allMessages = new ArrayList&lt;&gt;();</span>
+
+            // Шаг 2: Для каждого отклика получить все сообщения
+<span class="nc bnc" id="L241" title="All 2 branches missed.">            for (NegotiationItem item : filteredNegotiations) {</span>
+<span class="nc bnc" id="L242" title="All 2 branches missed.">                if (item.getId() == null) {</span>
+<span class="nc" id="L243">                    log.warn(&quot;Skipping negotiation with null ID&quot;);</span>
+<span class="nc" id="L244">                    continue;</span>
+                }
+
+<span class="nc" id="L247">                String messagesUri = UriComponentsBuilder.fromUriString(baseUrl + &quot;/negotiations/{nid}/messages&quot;)</span>
+<span class="nc" id="L248">                    .queryParam(&quot;per_page&quot;, 100) // Берем все сообщения</span>
+<span class="nc" id="L249">                    .buildAndExpand(item.getId())</span>
+<span class="nc" id="L250">                    .toUriString();</span>
+
+<span class="nc" id="L252">                log.info(&quot;Fetching messages for negotiation: {} ({})&quot;, item.getId(), item.getState().getId());</span>
+
+                try {
+<span class="nc" id="L255">                    NegotiationMessagesResponse messagesResponse = authenticated(webClient.get().uri(messagesUri))</span>
+<span class="nc" id="L256">                        .retrieve()</span>
+<span class="nc" id="L257">                        .onStatus(HttpStatusCode::isError, this::handleErrorResponse)</span>
+<span class="nc" id="L258">                        .bodyToMono(NegotiationMessagesResponse.class)</span>
+<span class="nc" id="L259">                        .doOnSuccess(res -&gt; {</span>
+<span class="nc bnc" id="L260" title="All 4 branches missed.">                            if (res != null &amp;&amp; res.getItems() != null) {</span>
+<span class="nc" id="L261">                                log.info(&quot;Found {} messages for negotiation {}&quot;, res.getItems().size(), item.getId());</span>
+                            }
+<span class="nc" id="L263">                        })</span>
+<span class="nc" id="L264">                        .block();</span>
+
+<span class="nc bnc" id="L266" title="All 4 branches missed.">                    if (messagesResponse != null &amp;&amp; messagesResponse.getItems() != null) {</span>
+<span class="nc" id="L267">                        allMessages.addAll(messagesResponse.getItems());</span>
+                    }
+
+                    // Пауза между запросами
+<span class="nc" id="L271">                    Thread.sleep(300);</span>
+<span class="nc" id="L272">                } catch (Exception e) {</span>
+<span class="nc" id="L273">                    log.error(&quot;Failed to get messages for negotiation {}: {}&quot;, item.getId(), e.getMessage());</span>
+<span class="nc" id="L274">                }</span>
+<span class="nc" id="L275">            }</span>
+
+            // Сортировка сообщений по дате (новые сверху)
+<span class="nc" id="L278">            allMessages.sort((m1, m2) -&gt; m2.getCreatedAt().compareTo(m1.getCreatedAt()));</span>
+
+<span class="nc" id="L280">            return allMessages;</span>
+
+<span class="nc" id="L282">        } catch (Exception e) {</span>
+<span class="nc" id="L283">            log.error(&quot;Failed to get latest messages&quot;, e);</span>
+<span class="nc" id="L284">            return Collections.emptyList();</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

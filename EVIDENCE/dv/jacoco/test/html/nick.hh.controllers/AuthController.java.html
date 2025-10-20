@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ru"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AuthController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">hh</a> &gt; <a href="index.source.html" class="el_package">nick.hh.controllers</a> &gt; <span class="el_source">AuthController.java</span></div><h1>AuthController.java</h1><pre class="source lang-java linenums">package nick.hh.controllers;
+
+import java.util.Map;
+import nick.hh.services.HhApiService;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.servlet.view.RedirectView;
+import org.springframework.web.util.UriComponentsBuilder;
+
+/**
+ * Получение резюме.
+ */
+@RestController
+public class AuthController {
+
+    @Value(&quot;${hh.api.client-id}&quot;)
+    private String clientId;
+
+    @Value(&quot;${hh.api.client-secret}&quot;)
+    private String clientSecret;
+
+    @Value(&quot;${hh.api.redirect-uri}&quot;)
+    private String redirectUri;
+
+    private final HhApiService hhApiService;
+
+    /**
+     * Получение резюме.
+     */
+<span class="nc" id="L40">    public AuthController(HhApiService hhApiService) {</span>
+<span class="nc" id="L41">        this.hhApiService = hhApiService;</span>
+<span class="nc" id="L42">    }</span>
+
+    /**
+     * Получение резюме.
+     */
+    @GetMapping(&quot;/auth/hh&quot;)
+    public RedirectView authenticate() {
+<span class="nc" id="L49">        String authUrl = UriComponentsBuilder.fromHttpUrl(&quot;https://hh.ru/oauth/authorize&quot;)</span>
+<span class="nc" id="L50">            .queryParam(&quot;response_type&quot;, &quot;code&quot;)</span>
+<span class="nc" id="L51">            .queryParam(&quot;client_id&quot;, clientId)</span>
+<span class="nc" id="L52">            .queryParam(&quot;redirect_uri&quot;, redirectUri)</span>
+<span class="nc" id="L53">            .toUriString();</span>
+
+<span class="nc" id="L55">        return new RedirectView(authUrl);</span>
+    }
+
+    /**
+     * Получение резюме.
+     */
+    @GetMapping(&quot;/api/v1/auth/callback&quot;)
+    public ResponseEntity&lt;String&gt; callback(@RequestParam(&quot;code&quot;) String code) {
+<span class="nc" id="L63">        HttpHeaders headers = new HttpHeaders();</span>
+<span class="nc" id="L64">        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);</span>
+
+<span class="nc" id="L66">        MultiValueMap&lt;String, String&gt; body = new LinkedMultiValueMap&lt;&gt;();</span>
+<span class="nc" id="L67">        body.add(&quot;grant_type&quot;, &quot;authorization_code&quot;);</span>
+<span class="nc" id="L68">        body.add(&quot;client_id&quot;, clientId);</span>
+<span class="nc" id="L69">        body.add(&quot;client_secret&quot;, clientSecret);</span>
+<span class="nc" id="L70">        body.add(&quot;code&quot;, code);</span>
+<span class="nc" id="L71">        body.add(&quot;redirect_uri&quot;, redirectUri);</span>
+
+<span class="nc" id="L73">        RestTemplate restTemplate = new RestTemplate();</span>
+<span class="nc" id="L74">        ResponseEntity&lt;Map&gt; response = restTemplate.postForEntity(</span>
+            &quot;https://hh.ru/oauth/token&quot;,
+            new org.springframework.http.HttpEntity&lt;&gt;(body, headers),
+            Map.class
+        );
+
+<span class="nc bnc" id="L80" title="All 4 branches missed.">        if (response.getStatusCode() == HttpStatus.OK &amp;&amp; response.getBody() != null) {</span>
+<span class="nc" id="L81">            String accessToken = (String) response.getBody().get(&quot;access_token&quot;);</span>
+<span class="nc" id="L82">            hhApiService.setAccessToken(accessToken);</span>
+<span class="nc" id="L83">            return ResponseEntity.ok(&quot;Authenticated successfully! Token: &quot; + accessToken);</span>
+        } else {
+<span class="nc" id="L85">            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(&quot;Authentication failed&quot;);</span>
+        }
+    }
+
+    /**
+     * Получение резюме.
+     */
+    @PostMapping(&quot;/set-token&quot;)
+    public ResponseEntity&lt;String&gt; setTokenManually(@RequestParam String token) {
+<span class="nc" id="L94">        hhApiService.setAccessToken(token);</span>
+<span class="nc" id="L95">        return ResponseEntity.ok(&quot;Token set successfully&quot;);</span>
+    }
+
+    /**
+     * Получение резюме.
+     */
+    @GetMapping(&quot;/check-token&quot;)
+    public ResponseEntity&lt;String&gt; checkToken() {
+<span class="nc bnc" id="L103" title="All 2 branches missed.">        String tokenStatus = hhApiService.hasToken() ? &quot;Token is set&quot; : &quot;Token is not set&quot;;</span>
+<span class="nc" id="L104">        return ResponseEntity.ok(tokenStatus);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

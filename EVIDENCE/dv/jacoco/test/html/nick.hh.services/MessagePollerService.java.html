@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ru"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MessagePollerService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">hh</a> &gt; <a href="index.source.html" class="el_package">nick.hh.services</a> &gt; <span class="el_source">MessagePollerService.java</span></div><h1>MessagePollerService.java</h1><pre class="source lang-java linenums">package nick.hh.services;
+
+import java.util.List;
+import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
+import nick.hh.dtos.negotiations.NegotiationMessage;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
+
+/**
+ * Получение резюме.
+ */
+<span class="fc" id="L14">@Slf4j</span>
+@Service
+public class MessagePollerService {
+
+    private final HhApiService hhApiService;
+
+    @Value(&quot;${hh.messages.max.negotiations:5}&quot;)
+    private int maxNegotiations;
+
+    @Value(&quot;${hh.messages.log.limit:20}&quot;)
+    private int logLimit;
+
+    /**
+     * Получение резюме.
+     */
+<span class="fc" id="L29">    public MessagePollerService(HhApiService hhApiService) {</span>
+<span class="fc" id="L30">        this.hhApiService = hhApiService;</span>
+<span class="fc" id="L31">    }</span>
+
+    /**
+     * Получение резюме.
+     */
+    @Scheduled(fixedRateString = &quot;${hh.messages.poll.interval:60000}&quot;)
+    public void pollLatestMessages() {
+<span class="fc bfc" id="L38" title="All 2 branches covered.">        if (!hhApiService.hasToken()) {</span>
+<span class="fc" id="L39">            log.warn(&quot;Skipping message polling: no access token&quot;);</span>
+<span class="fc" id="L40">            return;</span>
+        }
+
+        try {
+            // Получаем все сообщения из первых 5 откликов с нужными статусами
+<span class="fc" id="L45">            List&lt;NegotiationMessage&gt; messages = hhApiService.getLatestMessages(maxNegotiations);</span>
+
+<span class="fc" id="L47">            List&lt;NegotiationMessage&gt; messagesToLog = messages.stream()</span>
+<span class="fc" id="L48">                .limit(logLimit)</span>
+<span class="fc" id="L49">                .collect(Collectors.toList());</span>
+
+<span class="fc" id="L51">            logMessages(messagesToLog, messages.size());</span>
+<span class="fc" id="L52">        } catch (Exception e) {</span>
+<span class="fc" id="L53">            log.error(&quot;Message polling failed&quot;, e);</span>
+<span class="fc" id="L54">        }</span>
+<span class="fc" id="L55">    }</span>
+
+    private void logMessages(List&lt;NegotiationMessage&gt; messages, int totalCount) {
+<span class="fc bfc" id="L58" title="All 2 branches covered.">        if (messages.isEmpty()) {</span>
+<span class="fc" id="L59">            log.info(&quot;No new messages found&quot;);</span>
+<span class="fc" id="L60">            return;</span>
+        }
+
+<span class="fc" id="L63">        log.info(&quot;--- Latest {} messages (of {} total) ---&quot;, messages.size(), totalCount);</span>
+<span class="fc bfc" id="L64" title="All 2 branches covered.">        for (int i = 0; i &lt; messages.size(); i++) {</span>
+<span class="fc" id="L65">            NegotiationMessage message = messages.get(i);</span>
+
+<span class="fc bfc" id="L67" title="All 2 branches covered.">            String author = &quot;employer&quot;.equals(message.getAuthor().getParticipantType())</span>
+<span class="fc" id="L68">                ? &quot;Employer&quot; : &quot;You&quot;;</span>
+
+<span class="fc" id="L70">            String text = message.getText();</span>
+<span class="fc bfc" id="L71" title="All 2 branches covered.">            if (text != null) {</span>
+<span class="fc" id="L72">                text = text.replaceAll(&quot;\n&quot;, &quot; &quot;).trim();</span>
+<span class="fc bfc" id="L73" title="All 2 branches covered.">                if (text.length() &gt; 80) {</span>
+<span class="fc" id="L74">                    text = text.substring(0, 80) + &quot;...&quot;;</span>
+                }
+            } else {
+<span class="fc" id="L77">                text = &quot;[NO TEXT]&quot;;</span>
+            }
+
+<span class="fc bfc" id="L80" title="All 2 branches covered.">            String time = message.getCreatedAt() != null</span>
+<span class="fc" id="L81">                ? message.getCreatedAt().toLocalTime().toString()</span>
+<span class="fc" id="L82">                : &quot;[NO TIME]&quot;;</span>
+
+<span class="fc" id="L84">            log.info(&quot;{}. [{}][{}]: {}&quot;, i + 1, time, author, text);</span>
+        }
+
+<span class="fc bfc" id="L87" title="All 2 branches covered.">        if (totalCount &gt; messages.size()) {</span>
+<span class="fc" id="L88">            log.info(&quot;... and {} more messages not shown&quot;, totalCount - messages.size());</span>
+        }
+
+<span class="fc" id="L91">        log.info(&quot;--- End of messages ---&quot;);</span>
+<span class="fc" id="L92">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>
