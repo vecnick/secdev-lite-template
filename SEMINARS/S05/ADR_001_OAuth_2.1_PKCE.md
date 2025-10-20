@@ -1,5 +1,5 @@
 # ADR: OAuth 2.1 PKCE Implementation
-Status: Proposed
+Status: Approved
 
 ## Context
 Risk: R-01 (L=4, I=5, Score=20) - Подмена OAuth токена при авторизации через HH.ru

@@ -1,5 +1,5 @@
 # ADR: Application-Level PII Encryption
-Status: Proposed
+Status: Approved
 
 ## Context
 Risk: R-03 (L=3, I=5, Score=15) - Несанкционированный доступ к PII данным пользователей

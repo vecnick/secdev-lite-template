@@ -89,6 +89,18 @@
 * **API/Endpoints (пример):** `GET /api/auto-apply/pending`, `POST /api/auto-apply/confirm/{id}`
 * **NFR hooks:** `Security-AuthZ/RBAC`, `Data-Integrity`, `Observability/Logging`
 
+**US-015 - Управление доступом к данным**
+* **Роль-Цель-Ценность:** Как система, я хочу обеспечивать строгую изоляцию данных пользователей, чтобы предотвратить несанкционированный доступ
+* **Кратко:** RBAC проверки на всех уровнях, единообразные ошибки доступа
+* **API/Endpoints:** Все API endpoints с проверкой владения
+* **NFR hooks:** `Security-AuthZ/RBAC`, `Auditability`, `Observability/Logging`
+
+**US-016 - Обработка сбоев внешних API**
+* **Роль-Цель-Ценность:** Как система, я хочу устойчиво обрабатывать сбои внешних API, чтобы обеспечивать непрерывность работы
+* **Кратко:** Circuit breaker, retry с джиттером, graceful degradation
+* **API/Endpoints:** Все вызовы внешних API
+* **NFR hooks:** `Resilience`, `Timeouts/Retry`, `Observability/Logging`
+
 ---
 
 ## Группировка по функциональным блокам:

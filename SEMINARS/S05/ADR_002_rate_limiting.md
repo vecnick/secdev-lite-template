@@ -1,5 +1,5 @@
 # ADR: Adaptive HH.ru API Rate Limiting
-Status: Proposed
+Status: Approved
 
 ## Context
 Risk: R-02 (L=4, I=4, Score=16) - Блокировка аккаунта из-за превышения лимитов HH.ru API
