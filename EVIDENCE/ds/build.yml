@@ -1,0 +1,130 @@
+name: Java CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "**" ]
+
+env:
+  PROJECT_DIR: "."
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        with:
+          args: --source=${{ env.PROJECT_DIR }} --report-path ./gitleaks-report.json --report-format json
+
+      # --- Загружаем отчет gitleaks как артефакт ---
+      - name: Upload Gitleaks Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gitleaks-report
+          path: ./gitleaks-report.json
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          working-directory: ${{ env.PROJECT_DIR }}  # Указываем рабочую директорию
+
+      # Все команды Gradle выполняем с явным указанием рабочей директории
+      - name: Execute Gradle build
+        run: ./gradlew build
+        working-directory: ${{ env.PROJECT_DIR }}
+
+      - name: Run Checkstyle
+        run: ./gradlew checkstyleMain checkstyleTest
+        working-directory: ${{ env.PROJECT_DIR }}
+
+      - name: Run Unit Tests with Coverage
+        run: ./gradlew test jacocoTestReport
+        working-directory: ${{ env.PROJECT_DIR }}
+
+      - name: Upload Checkstyle Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: checkstyle-report
+          path: ${{ env.PROJECT_DIR }}/build/reports/checkstyle
+
+      - name: Cache SonarQube packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+
+      - name: Cache Gradle packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.gradle/caches
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle') }}
+          restore-keys: ${{ runner.os }}-gradle
+
+      - name: Build and analyze with SonarCloud
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: ./gradlew sonar --info
+        working-directory: ${{ env.PROJECT_DIR }}  # Анализ в нужной директории
+
+
+  security-scan:
+    name: Security Scan (IaC & Container)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # --- Trivy Scan для IaC (Dockerfile, docker-compose.yml) ---
+      - name: Run Trivy IaC Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'config' # Для проверки конфигурационных файлов (IaC)
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-config-results.sarif'
+
+      # --- Загружаем отчеты Trivy как артефакты ---
+      - name: Upload Trivy Config SARIF
+        uses: actions/upload-artifact@v4
+        if: always() # Загружаем всегда, даже если сканирование нашло уязвимости
+        with:
+          name: trivy-config-scan-report
+          path: trivy-config-results.sarif
+
+  docker-build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    needs: analyze
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ env.PROJECT_DIR }}
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/hh:latest

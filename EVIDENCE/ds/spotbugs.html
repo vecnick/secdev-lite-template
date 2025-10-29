@@ -1,0 +1,1339 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html
+  PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
+   <head>
+      <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+      <title>SpotBugs (4.9.8) analysis for hh (spotbugsMain) of release 0.0.1-SNAPSHOT</title>
+      <style type="text/css">
+         html, body, div, form {
+            margin:0px;
+            padding:0px;
+         }
+         body {
+            padding:3px;
+         }
+         a, a:link , a:active, a:visited, a:hover {
+            text-decoration: none; color: black;
+         }
+         #navlist {
+            padding: 3px 0;
+            margin-left: 0;
+            border-bottom: 1px solid #778;
+            font: bold 12px Verdana, sans-serif;
+         }
+         #navlist li {
+            list-style: none;
+            margin: 0;
+            display: inline;
+         }
+         #navlist li a {
+            padding: 3px 0.5em;
+            margin-left: 3px;
+            border: 1px solid #778;
+            border-bottom: none;
+            background: #DDE;
+            text-decoration: none;
+         }
+         #navlist li a:link { color: #448; }
+         #navlist li a:visited { color: #667; }
+         #navlist li a:hover {
+            color: #000;
+            background: #AAE;
+            border-color: #227;
+         }
+         #navlist li a.current {
+            background: white;
+            border-bottom: 1px solid white;
+         }
+         #filterWrapper {
+            margin-bottom:5px;
+         }
+         #displayWrapper {
+            margin-top:5px;
+         }
+         .message {
+            background:#BBBBBB;
+            border: 1px solid #778;
+         }
+         .displayContainer {
+            border:1px solid #555555;
+            margin-top:3px;
+            padding: 3px;
+            display:none;
+         }
+         #summaryContainer table,
+         #historyContainer table {
+            border:1px solid black;
+         }
+         #summaryContainer th,
+         #historyContainer th {
+            background: #aaaaaa;
+            color: white;
+         }
+         #summaryContainer th, #summaryContainer td,
+         #historyContainer th, #historyContainer td {
+            padding: 2px 4px 2px 4px;
+         }
+         .summary-name {
+            background: #eeeeee;
+            text-align:left;
+         }
+         .summary-size {
+            background: #eeeeee;
+            text-align:center;
+         }
+         .summary-priority-all {
+            background: #dddddd;
+            text-align:center;
+         }
+         .summary-priority-1 {
+            background: #ef2929;
+            text-align:center;
+         }
+         .summary-priority-2 {
+            background: #fcaf3e;
+            text-align:center;
+         }
+         .summary-priority-3 {
+            background: #8ae234;
+            text-align:center;
+         }
+         .summary-priority-4 {
+            background: #729fcf;
+            text-align:center;
+         }
+
+         .bugList-level1 {
+            margin-bottom:5px;
+         }
+         .bugList-level1, .bugList-level2, .bugList-level3, .bugList-level4 {
+            background-color: #ffffff;
+            margin-left:15px;
+            padding-left:10px;
+         }
+         .bugList-level1-label, .bugList-level2-label, .bugList-level3-label, .bugList-level4-label {
+            background-color: #bbbbbb;
+            border: 1px solid black;
+            padding: 1px 3px 1px 3px;
+         }
+         .bugList-level2-label, .bugList-level3-label, .bugList-level4-label {
+            border-width: 0px 1px 1px 1px;
+         }
+         .bugList-level4-label {
+            background-color: #ffffff;
+            border: 0px 0px 1px 0px;
+         }
+         .bugList-level4 {
+            border: 0px 1px 1px 1px;
+         }
+
+         .bugList-level4-inner {
+            border-style: solid;
+            border-color: black;
+            border-width: 0px 1px 1px 1px;
+         }
+         .b-r {
+            font-size: 10pt; font-weight: bold; padding: 0 0 0 60px;
+         }
+         .b-d {
+            font-weight: normal; background: #ccccc0;
+            padding: 0 5px 0 5px; margin: 0px;
+         }
+         .b-1 {
+            background: #ef2929; height: 0.5em; width: 1em;
+            margin-right: 0.5em;
+         }
+         .b-2 {
+            background: #fcaf3e; height: 0.5em; width: 1em;
+            margin-right: 0.5em;
+         }
+         .b-3 {
+            background: #8ae234; height: 0.5em; width: 1em;
+            margin-right: 0.5em;
+         }
+         .b-4 {
+            background: #729fcf; height: 0.5em; width: 1em;
+            margin-right: 0.5em;
+         }
+      </style>
+      <script type="text/javascript">
+         var menus = new Array('summary', 'info', 'history', 'listByCategories', 'listByPackages');
+
+         var state = new Proxy({
+            tab: "summary",
+            includeFixed: true,
+            release: -1,
+            priority: 4
+         }, {
+            set: function (target, name, value) {
+               target[name] = value;
+               history.replaceState(null, null, "#" + JSON.stringify(target));
+            }
+         });
+
+         var filterContainerId              = "filterWrapper";
+         var historyControlContainerId      = "historyControlWrapper";
+         var messageContainerId             = "messageContainer";
+         var summaryContainerId             = "summaryContainer";
+         var infoContainerId                = "infoContainer";
+         var historyContainerId             = "historyContainer";
+         var listByCategoriesContainerId    = "listByCategoriesContainer";
+         var listByPackagesContainerId      = "listByPackagesContainer";
+
+         // main init function
+         function init() {
+            if (versions.size <= 1) {
+               hide("historyMenu")
+            }
+            loadFilter();
+            onHashChange()
+            includeFixedIntroducedBugsInHistory();
+            window.addEventListener('hashchange', onHashChange);
+         }
+
+         function onHashChange() {
+            try {
+               var hash = location.hash.substring(1);
+               if (hash.charAt(1) != "\"") {
+                  hash = decodeURIComponent(hash);
+               }
+               var parsedState = JSON.parse(hash);
+               selectMenu(parsedState.tab);
+               var element = document.findbugsHistoryControlForm.includeFixedIntroducedBugs;
+               element.checked = parsedState.includeFixed;
+               element.onchange();
+               element = document.findbugsForm.versions;
+               element.value = (element.namedItem(parsedState.release) == null) ? state.release : parsedState.release;
+               element.onchange();
+               element = document.findbugsForm.priorities;
+               element.value = (element.namedItem(parsedState.priority) == null) ? state.priority : parsedState.priority;
+               element.onchange();
+            } catch (e) {
+               history.replaceState(null, null, "#" + JSON.stringify(state));
+            }
+         }
+
+         // menu callback function
+         function selectMenu(menuId) {
+            document.getElementById(state.tab).className="none";
+            document.getElementById(menuId).className="current";
+            if (menuId!=state.tab) {
+               hideMenu(state.tab);
+               state.tab = menuId;
+            }
+            if (menuId=="summary")           displaySummary();
+            if (menuId=="info")              displayInfo();
+            if (menuId=="history")           displayHistory();
+            if (menuId=="listByCategories")  displayListByCategories();
+            if (menuId=="listByPackages")    displayListByPackages();
+         }
+
+         // display filter
+         function loadFilter() {
+            var versionsBox = document.findbugsForm.versions;
+            versionsBox.options[0] = new Option(" -- All Releases -- ", "-1");
+            versionsBox.options[0].id = "-1";
+            versionsBox.options.selectedIndex = 0;
+            for (version of versions) {
+               var option = new Option(version[1], version[0]);
+               option.id = version[0];
+               versionsBox.options.add(option);
+            }
+            if (versions.size <= 1) {
+               versionsBox.style.display = "none";
+            }
+         }
+
+         // display a message
+         function displayMessage(msg) {
+            var container = document.getElementById(messageContainerId);
+            container.innerHTML = "<div class='message'>"+msg+"</div>";
+         }
+
+         // reset displayed message
+         function resetMessage() {
+            var container = document.getElementById(messageContainerId);
+            container.innerHTML = "";
+         }
+
+         function hideMenu(menuId) {
+            hide(menuId + "Container");
+         }
+
+         // filter callback function
+         function filter() {
+            state.release = document.findbugsForm.versions.value;
+            state.priority = document.findbugsForm.priorities.value;
+            selectMenu(state.tab);
+         }
+
+         // includeFixedBugs callback function
+         function includeFixedIntroducedBugsInHistory() {
+            state.includeFixed = document.findbugsHistoryControlForm.includeFixedIntroducedBugs.checked;
+            selectMenu(state.tab);
+         }
+
+         // display summary tab
+         function displaySummary() {
+            resetMessage();
+            hide(filterContainerId);
+            hide(historyControlContainerId);
+            var container = document.getElementById(summaryContainerId);
+            container.style.display="block";
+         }
+
+         // display info tab
+         function displayInfo() {
+            resetMessage();
+            hide(filterContainerId);
+            hide(historyControlContainerId);
+            var container = document.getElementById(infoContainerId);
+            container.style.display="block";
+         }
+
+         // display history tab
+         function displayHistory() {
+            displayMessage("Loading history...");
+            hide(filterContainerId);
+            show(historyControlContainerId);
+            var container = document.getElementById(historyContainerId);
+            var content = "";
+            var i=0;
+            var p = [0,0,0,0,0];
+            var f = [0,0,0,0,0];
+
+            content += "<table><tr><th>Release</th><th>Total Bugs</th><th>Bugs P1</th><th>Bugs P2</th><th>Bugs P3</th><th>Bugs Experimental</th></tr>";
+
+            var aSpan   = "<span title='Bugs introduced in this release that have not been fixed.'>";
+            var fSpan   = "<span title='Bugs fixed in this release.'>";
+            var fiSpan  = "<span title='Bugs introduced in this release that were fixed in later releases.'>";
+            var afiSpan = "<span title='Total number of bugs introduced in this release.'>";
+            var eSpan   = "</span>";
+
+            var versionIds = Array.from(versions.keys())
+            if(state.includeFixed) {
+               for (i=(versionIds.length-1); i>0; i--) {
+                  var versionId = versionIds[i];
+                  v = countBugsVersion(versionId, 4);
+                  t = countTotalBugsVersion(versionId);
+                  o = countFixedButActiveBugsVersion(versionId);
+                  f = countFixedBugsInVersion(versionId);
+                  fi = countFixedBugsIntroducedInVersion(versionId);
+                  content += "<tr>";
+                  content += "<td class='summary-name'>" + versions.get(versionId) + "</td>";
+                  content += "<td class='summary-priority-all'> " + (t[0] + o[0]) + " (+" + afiSpan + (v[0] + fi[0]) + eSpan +
+                        " [" + aSpan + v[0] + eSpan + " / " + fiSpan + fi[0] + eSpan + "] " + eSpan + " / -" + fSpan + f[0] + eSpan + ") </td>";
+                  content += "<td class='summary-priority-1'> " + (t[1] + o[1]) + " (+" + afiSpan + (v[1] + fi[1]) + eSpan +
+                        " [" + aSpan + v[1] + eSpan + " / " + fiSpan + fi[1] + eSpan + "] " + eSpan + " / -" + fSpan + f[1] + eSpan + ") </td>";
+                  content += "<td class='summary-priority-2'> " + (t[2] + o[2]) + " (+" + afiSpan + (v[2] + fi[2]) + eSpan +
+                        " [" + aSpan + v[2] + eSpan + " / " + fiSpan + fi[2] + eSpan + "] " + eSpan + " / -" + fSpan + f[2] + eSpan + ") </td>";
+                  content += "<td class='summary-priority-3'> " + (t[3] + o[3]) + " (+" + afiSpan + (v[3] + fi[3]) + eSpan +
+                        " [" + aSpan + v[3] + eSpan + " / " + fiSpan + fi[3] + eSpan + "] " + eSpan + " / -" + fSpan + f[3] + eSpan + ") </td>";
+                  content += "<td class='summary-priority-4'> " + (t[4] + o[4]) + " (+" + afiSpan + (v[4] + fi[4]) + eSpan +
+                        " [" + aSpan + v[4] + eSpan + " / " + fiSpan + fi[4] + eSpan + "] " + eSpan + " / -" + fSpan + f[4] + eSpan + ") </td>";
+                  content += "</tr>";
+               }
+            } else {
+               for (i=(versionIds.length-1); i>0; i--) {
+                  var versionId = versionIds[i];
+                  v = countBugsVersion(versionId, 4);
+                  t = countTotalBugsVersion(versionId);
+                  o = countFixedButActiveBugsVersion(versionId);
+                  f = countFixedBugsInVersion(versionId);
+                  content += "<tr>";
+                  content += "<td class='summary-name'>" + versions.get(versionId) + "</td>";
+                  content += "<td class='summary-priority-all'> " + (t[0] + o[0]) + " (+" + aSpan + v[0] + eSpan + " / -" + fSpan + f[0] + eSpan + ") </td>";
+                  content += "<td class='summary-priority-1'  > " + (t[1] + o[1]) + " (+" + aSpan + v[1] + eSpan + " / -" + fSpan + f[1] + eSpan + ") </td>";
+                  content += "<td class='summary-priority-2'  > " + (t[2] + o[2]) + " (+" + aSpan + v[2] + eSpan + " / -" + fSpan + f[2] + eSpan + ") </td>";
+                  content += "<td class='summary-priority-3'  > " + (t[3] + o[3]) + " (+" + aSpan + v[3] + eSpan + " / -" + fSpan + f[3] + eSpan + ") </td>";
+                  content += "<td class='summary-priority-4'  > " + (t[4] + o[4]) + " (+" + aSpan + v[4] + eSpan + " / -" + fSpan + f[4] + eSpan + ") </td>";
+                  content += "</tr>";
+               }
+            }
+
+            t = countTotalBugsVersion(versionIds[0]);
+            o = countFixedButActiveBugsVersion(versionIds[0]);
+            content += "<tr>";
+            content += "<td class='summary-name'>" + versions.get(versionIds[0]) + "</td>";
+            content += "<td class='summary-priority-all'> " + (t[0] + o[0]) + " </td>";
+            content += "<td class='summary-priority-1'  > " + (t[1] + o[1]) + " </td>";
+            content += "<td class='summary-priority-2'  > " + (t[2] + o[2]) + " </td>";
+            content += "<td class='summary-priority-3'  > " + (t[3] + o[3]) + " </td>";
+            content += "<td class='summary-priority-4'  > " + (t[4] + o[4]) + " </td>";
+            content += "</tr>";
+
+            content += "</table>";
+            container.innerHTML = content;
+            container.style.display="block";
+            resetMessage();
+         }
+
+         // display list by cat tab
+         function displayListByCategories() {
+            hide(historyControlContainerId);
+            show(filterContainerId);
+            var container = document.getElementById(listByCategoriesContainerId);
+            container.innerHTML = "";
+            container.style.display="block";
+            displayMessage("Loading stats (categories)...");
+            container.innerHTML = displayLevel1("lbc", "Stats by Bug Categories");
+            resetMessage();
+         }
+
+         // display list by package tab
+         function displayListByPackages() {
+            hide(historyControlContainerId);
+            show(filterContainerId);
+            var container = document.getElementById(listByPackagesContainerId);
+            container.style.display="block";
+            displayMessage("Loading stats (packages)...");
+            container.innerHTML = displayLevel1("lbp", "Stats by Bug Package");
+            resetMessage();
+         }
+
+         // callback function for list item click
+         function toggleList(listType, containerId, id1, id2, id3) {
+            var container = document.getElementById(containerId);
+            if (container.style.display=="block") {
+               container.style.display="none";
+            } else {
+               if (listType=="lbc") {
+                  if (id1.length>0 && id2.length==0 && id3.length==0) {
+                     displayCategoriesCodes(containerId, id1);
+                  } else if (id1.length>0 && id2.length>0 && id3.length==0) {
+                     displayCategoriesCodesPatterns(containerId, id1, id2);
+                  } else if (id1.length>0 && id2.length>0 && id3.length>0) {
+                     displayCategoriesCodesPatternsBugs(containerId, id1, id2, id3);
+                  } else {
+                     // ???
+                  }
+               } else if (listType=="lbp") {
+                  if (id1.length>0 && id2.length==0 && id3.length==0) {
+                     displayPackageCodes(containerId, id1);
+                  } else if (id1.length>0 && id2.length>0 && id3.length==0) {
+                     displayPackageClassPatterns(containerId, id1, id2);
+                  } else if (id1.length>0 && id2.length>0 && id3.length>0) {
+                     displayPackageClassPatternsBugs(containerId, id1, id2, id3);
+                  } else {
+                     // ???
+                  }
+               } else {
+                  // ????
+               }
+            }
+         }
+
+         // list by categories, display bug cat>codes
+         function displayCategoriesCodes(containerId, category) {
+            displayMessage("Loading stats (codes)...");
+            var container = document.getElementById(containerId);
+            container.style.display="block";
+            if (container.innerHTML=="Loading..." || container.innerHTML=="") {
+               container.innerHTML = displayLevel2("lbc", category);
+            }
+            resetMessage();
+         }
+
+         // list by categories, display bug package>codes
+         function displayPackageCodes(containerId, packageName) {
+            displayMessage("Loading stats (codes)...");
+            var container = document.getElementById(containerId);
+            container.style.display="block";
+            if (container.innerHTML=="Loading..." || container.innerHTML=="") {
+               container.innerHTML = displayLevel2("lbp", packageName);
+            }
+            resetMessage();
+         }
+
+         // list by categories, display bug cat>codes>patterns
+         function displayCategoriesCodesPatterns(containerId, category, code) {
+            displayMessage("Loading stats (patterns)...");
+            var container = document.getElementById(containerId);
+            container.style.display="block";
+            if (container.innerHTML=="Loading..." || container.innerHTML=="") {
+               container.innerHTML = displayLevel3("lbc", category, code);
+            }
+            resetMessage();
+         }
+
+         // list by package, display bug package>class>patterns
+         function displayPackageClassPatterns(containerId, packageName, className) {
+            displayMessage("Loading stats (patterns)...");
+            var container = document.getElementById(containerId);
+            container.style.display="block";
+            if (container.innerHTML=="Loading..." || container.innerHTML=="") {
+               container.innerHTML = displayLevel3("lbp", packageName, className);
+            }
+            resetMessage();
+         }
+
+         // list by categories, display bug cat>codes>patterns>bugs
+         function displayCategoriesCodesPatternsBugs(containerId, category, code, pattern) {
+            displayMessage("Loading stats (bugs)...");
+            var container = document.getElementById(containerId);
+            container.style.display="block";
+            if (container.innerHTML=="Loading..." || container.innerHTML=="") {
+               container.innerHTML = displayLevel4("lbc", category, code, pattern);
+            }
+            resetMessage();
+         }
+
+         // list by package, display bug package>class>patterns>bugs
+         function displayPackageClassPatternsBugs(containerId, packageName, className, pattern) {
+            displayMessage("Loading stats (bugs)...");
+            var container = document.getElementById(containerId);
+            container.style.display="block";
+            if (container.innerHTML=="Loading..." || container.innerHTML=="") {
+               container.innerHTML = displayLevel4("lbp", packageName, className, pattern);
+            }
+            resetMessage();
+         }
+
+         // generate level 1 list
+         function displayLevel1(list, title) {
+            var content = "";
+            var content2 = "";
+
+            content += "<h3>"+title+"</h3>";
+            content += getPriorityLegend();
+            content2 += "<div class='bugList'>";
+
+            var id = "";
+            var containerId = "";
+            var subContainerId = "";
+            var prefixSub = "";
+            var prefixId = "";
+            var p = [0,0,0,0,0];
+            var numberOfBugs = 0;
+            var label = "";
+            var max = 0;
+            if (list=="lbc") {
+               max = categories.length;
+            } else if (list=="lbp") {
+               max = packageStats.length;
+            }
+
+            for (var x=0; x<max; x++) {
+               if (list=="lbp" && packageStats[x].totalBugs=="0") continue;
+
+               if (list=="lbc") {
+                  id = categories[x].id;
+                  label = categories[x].label;
+                  containerId = "categories-" + id;
+                  subContainerId = "cat-"+id;
+                  p = countBugsCat(state.release, state.priority, id);
+               }
+               if (list=="lbp") {
+                  id = packageStats[x].packageName;
+                  label = packageStats[x].packageName;
+                  containerId = "packages-" + id;
+                  subContainerId = "package-"+id;
+                  p = countBugsPackage(state.release, state.priority, id);
+               }
+
+               subContainerId = prefixSub+id;
+
+               var total = p[1]+p[2]+p[3]+p[4];
+               if (total > 0) {
+                  content2 += addListItem( 1, containerId, label, total, p, subContainerId,
+                                          "toggleList('" + list + "', '" + subContainerId + "', '"+ id + "', '', '')"
+                                          );
+               }
+               numberOfBugs += total;
+            }
+            content2 += "</div>";
+            content += "<h4>Total number of bugs";
+            if (state.release!=-1) {
+               content += " (introduced in release " + versions.get(state.release) +")";
+            }
+            content += ": "+numberOfBugs+"</h4>";
+            return content+content2;
+         }
+
+         // generate level 2 list
+         function displayLevel2(list, id1) {
+            var content = "";
+            var code = "";
+            var containerId = "";
+            var subContainerId = "";
+            var p = [0,0,0,0,0];
+            var max = 0;
+            var id2 = "";
+            if (list=="lbc") {
+               max = codes.length;
+            } else if (list=="lbp") {
+               max = classStats.length;
+            }
+
+            for (var x=0; x<max; x++) {
+               if (list=="lbp" && classStats[x].totalBugs=="0") continue;
+
+               if (list=="lbc") {
+                  id2 = codes[x].id;
+                  label = codes[x].label;
+                  containerId = "codes-"+id1;
+                  subContainerId = "cat-" + id1 + "-code-" + id2;
+                  p = countBugsCode(state.release, state.priority, id1, id2);
+               }
+               if (list=="lbp") {
+                  id2 = classStats[x].className;
+                  label = classStats[x].className;
+                  containerId = "packages-"+id1;
+                  subContainerId = "package-" + id1 + "-class-" + id2;
+                  p = countBugsClass(state.release, state.priority, id1, id2);
+               }
+
+               var total = p[1]+p[2]+p[3]+p[4];
+               if (total > 0) {
+                  content += addListItem( 2, containerId, label, total, p, subContainerId,
+                                          "toggleList('"+ list + "', '" + subContainerId + "', '"+ id1 + "', '"+ id2 + "', '')"
+                                          );
+               }
+            }
+            return content;
+         }
+
+         // generate level 3 list
+         function displayLevel3(list, id1, id2) {
+            var content = "";
+            var containerId = "";
+            var subContainerId = "";
+            var p = [0,0,0,0,0];
+            var max = 0;
+            var label = "";
+            var id3 = "";
+
+            if ((list=="lbc") || (list=="lbp")) {
+               max = patterns.length;
+            }
+
+            for (var x=0; x<max; x++) {
+               if (list=="lbc") {
+                  id3 = patterns[x].id;
+                  label = patterns[x].label + " ( " + id3 + " )";
+                  containerId = "patterns-"+id1;
+                  subContainerId = "cat-" + id1 + "-code-" + id2 + "-pattern-" + id3;
+                  p = countBugsPattern(state.release, state.priority, id1, id2, id3);
+               }
+               if (list=="lbp") {
+                  id3 = patterns[x].id;
+                  label = patterns[x].label + " ( " + id3 + " )";
+                  containerId = "classpatterns-"+id1;
+                  subContainerId = "package-" + id1 + "-class-" + id2 + "-pattern-" + id3;
+                  p = countBugsClassPattern(state.release, state.priority, id2, id3);
+               }
+
+               var total = p[1]+p[2]+p[3]+p[4];
+               if (total > 0) {
+                  content += addListItem( 3, containerId, label, total, p, subContainerId,
+                                          "toggleList('" + list + "', '" + subContainerId + "', '"+ id1 + "', '"+ id2 + "', '"+ id3 + "')"
+                                          );
+               }
+            }
+            return content;
+         }
+
+         // generate level 4 list
+         function displayLevel4(list, id1, id2, id3) {
+            var content = "";
+            var bug = "";
+            var bugP = 0;
+            var containerId = "";
+            var subContainerId = "";
+            var bugId = "";
+            var label = "";
+            var p = [0,0,0,0,0];
+            for (bug of bugs) {
+               if (list=="lbc") {
+                  if ( bug.category!=id1 || bug.code!=id2 || bug.pattern!=id3 ) continue;
+                  if ( state.release!=-1
+                     && state.release!=bug.firstVersion) continue;
+                  if ( state.priority!=4
+                     && state.priority<bug.priority) continue;
+
+                  subContainerId = "cat-" + id1 + "-code-" + id2 + "-pattern-" + id3 + "-bug-" + bug.id;
+               }
+               if (list=="lbp") {
+                  if ( bug.packageName!=id1 || bug.className!=id2 || bug.pattern!=id3 ) continue;
+                  if ( state.release!=-1
+                     && state.release!=bug.firstVersion) continue;
+                  if ( state.priority!=4
+                     && state.priority<bug.priority) continue;
+
+                  subContainerId = "package-" + id1 + "-class-" + id2 + "-pattern-" + id3 + "-bug-" + bug.id;
+               }
+
+               bugId = "b-uid-" + bug.id;
+               label = bug.className;
+               containerId = "bugs-"+bugId;
+               bugP = bug.priority;
+               p[bugP]++;
+               var total = p[1]+p[2]+p[3]+p[4];
+               if (total > 0) {
+                  content += addBug(   4, containerId, label, bugP, bug.firstVersion, subContainerId,
+                                       "showbug('" + bugId + "', '" + subContainerId + "', '"+id3+"')");
+               }
+            }
+            return content;
+         }
+
+
+         function addListItem(level, id, label, total, p, subId, onclick) {
+            var content = "";
+
+            content += "<div class='bugList-level"+level+"' >";
+            content += "<div class='bugList-level"+level+"-label' id='"+id+"' >";
+            content += "<a href='' onclick=\"" + onclick + ";return false;\" ";
+            content += ">";
+            content += "<strong>"+label+"</strong>";
+            content += " "+total+" bugs";
+            if (state.priority>1)
+               content += " <em>("+p[1];
+            if (state.priority>=2)
+               content += "/"+p[2];
+            if (state.priority>=3)
+               content += "/"+p[3];
+            if (state.priority>=4)
+               content += "/"+p[4];
+            if (state.priority>1)
+               content += ")</em>";
+            content += "</a>";
+            content += "</div>";
+            content += "<div class='bugList-level"+level+"-inner' id='"+subId+"' style='display:none;'>Loading...</div>";
+            content += "</div>";
+            return content;
+         }
+
+         function addBug( level, id, label, p, version, subId, onclick) {
+            var content = "";
+
+            content += "<div class='bugList-level" + level + "' id='" + id + "'>";
+            content += "<div class='bugList-level" + level + "-label' id='" + id + "'>";
+            content += "<span class='b-" + p + "'>&nbsp;&nbsp;&nbsp;</span>";
+            content += "<a href='' onclick=\"" + onclick + ";return false;\">";
+            if ((versions.size>1) && (version==lastVersion)) {
+               content += "<span style='color:#ef2929;font-weight:bold;'>NEW!</span> ";
+            }
+            content += "<strong>" + label + "</strong>";
+            if (version==0) {
+               content += " <em>since first historized release " + versions.get(version.toString()) + "</em>";
+            } else {
+               content += " <em>since release " + versions.get(version.toString()) + "</em>";
+            }
+            content += "</a>";
+            content += "</div>";
+            content += "<div class='bugList-level" + level + "-inner' id='" + subId + "' style='display:none;'>Loading...</div>";
+            content += "</div>";
+            return content;
+         }
+
+         function countBugsVersion(version, priority) {
+            return countBugs(version, priority, null, null, null, null, null);
+         }
+
+         function countBugsCat(version, priority, category) {
+            return countBugs(version, priority, category, null, null, null, null);
+         }
+
+         function countBugsPackage(version, priority, packageName) {
+            return countBugs(version, priority, null, null, null, packageName, null);
+         }
+
+         function countBugsCode(version, priority, category, code) {
+            return countBugs(version, priority, category, code, null, null, null);
+         }
+
+         function countBugsPattern(version, priority, category, code, pattern) {
+            return countBugs(version, priority, category, code, pattern, null, null);
+         }
+
+         function countBugsClass(version, priority, packageName, className) {
+            return countBugs(version, priority, null, null, null, packageName, className);
+         }
+
+         function countBugsClassPattern(version, priority, className, pattern) {
+            return countBugs(version, priority, null, null, pattern, null, className);
+         }
+
+         function countBugs(version, priority, category, code, pattern, packageName, className) {
+            var count = [0,0,0,0,0];
+            for (bug of bugs) {
+               if (     (version==-1  || version==bug.firstVersion)
+                     && (priority==4  || priority>=bug.priority)
+                     && (!category    || bug.category==category)
+                     && (!code        || bug.code==code)
+                     && (!pattern     || bug.pattern==pattern)
+                     && (!packageName || bug.packageName==packageName)
+                     && (!className   || bug.className==className)
+                     ) {
+                  count[bug.priority]++;
+               }
+            }
+            count[0] = count[1] + count[2] + count[3] + count[4];
+            return count;
+         }
+
+         function countFixedBugsInVersion(version) {
+            var count = [0,0,0,0,0];
+            var last=1000000;
+            for (bug of fixedBugs) {
+               if (version==-1 || version==(bug.lastVersion+1)) {
+                  count[bug.priority]++;
+               }
+            }
+            count[0] = count[1] + count[2] + count[3] + count[4];
+            return count;
+         }
+
+         function countFixedBugsIntroducedInVersion(version) {
+            var count = [0,0,0,0,0];
+            var last=1000000;
+            for (bug of fixedBugs) {
+               if (version==-1 || version==(bug.firstVersion)) {
+                  count[bug.priority]++;
+               }
+            }
+            count[0] = count[1] + count[2] + count[3] + count[4];
+            return count;
+         }
+
+         function countFixedButActiveBugsVersion(version) {
+            var count = [0,0,0,0,0];
+            var last=1000000;
+            for (bug of fixedBugs) {
+               if ( version==-1 || (version >=bug.firstVersion && version<=bug.lastVersion) ) {
+                  count[bug.priority]++;
+               }
+            }
+            count[0] = count[1] + count[2] + count[3] + count[4];
+            return count;
+         }
+
+         function countTotalBugsVersion(version) {
+            var count = [0,0,0,0,0];
+            var last=1000000;
+            for (bug of bugs) {
+               if (version==-1 || version>=bug.firstVersion) {
+                  count[bug.priority]++;
+               }
+            }
+            count[0] = count[1] + count[2] + count[3] + count[4];
+            return count;
+         }
+
+         function getPriorityLegend() {
+            var content = "";
+            content += "<h5><span class='b-1'>&nbsp;&nbsp;&nbsp;</span>P1&nbsp;&nbsp;&nbsp;";
+            content += "<span class='b-2'>&nbsp;&nbsp;&nbsp;</span>P2&nbsp;&nbsp;&nbsp;";
+            content += "<span class='b-3'>&nbsp;&nbsp;&nbsp;</span>P3&nbsp;&nbsp;&nbsp;";
+            content += "<span class='b-4'>&nbsp;&nbsp;&nbsp;</span>Experimental";
+            content += "</h5>";
+            return content;
+         }
+
+         function showbug(bugId, containerId, pattern) {
+            var bugplaceholder   = document.getElementById(containerId);
+            var bug              = document.getElementById(bugId);
+
+            if ( bugplaceholder==null) {
+               alert(buguid+'-ph-'+list+' - '+buguid+' - bugplaceholder==null');
+               return;
+            }
+            if ( bug==null) {
+               alert(buguid+'-ph-'+list+' - '+buguid+' - bug==null');
+               return;
+            }
+
+            var newBug = bug.innerHTML;
+            var pattern = document.getElementById('tip-'+pattern).innerHTML;
+            toggle(containerId);
+            bugplaceholder.innerHTML = newBug + pattern;
+         }
+         function toggle(containerId) {
+            if( document.getElementById(containerId).style.display == "none") {
+               show(containerId);
+            } else {
+               if( document.getElementById(containerId).style.display == "block") {
+                  hide(containerId);
+               } else {
+                  show(containerId);
+               }
+            }
+         }
+         function show(containerId) {
+            document.getElementById(containerId).style.display="block";
+         }
+         function hide(containerId) {
+            document.getElementById(containerId).style.display="none";
+         }
+
+         window.onload = function(){
+            init();
+         };
+
+         var lastVersion = "0";
+
+         // versions fields: release id, release label
+         var versions = new Map([
+               ["0", "0.0.1-SNAPSHOT"]
+         ]);
+
+         var categories = new Array(
+               {id: "BAD_PRACTICE", label: "Bad practice"},
+               {id: "STYLE", label: "Dodgy code"}
+         );
+
+         var codes = new Array(
+               {id: "FS", label: "Format string problem"},
+               {id: "NP", label: "Null pointer dereference"},
+               {id: "REC", label: "RuntimeException capture"}
+         );
+
+         var patterns = new Array(
+               {category: "STYLE", code: "REC", id: "REC_CATCH_EXCEPTION", label: "Exception is caught when Exception is not thrown"},
+               {category: "BAD_PRACTICE", code: "FS", id: "VA_FORMAT_STRING_USES_NEWLINE", label: "Format string should use %n rather than \n"},
+               {category: "STYLE", code: "NP", id: "NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE", label: "Possible null pointer dereference due to return value of called method"}
+         );
+
+         var classStats = new Array(
+               {className: "nick.hh.HhApplication", packageName: "nick.hh", isInterface: "false", totalBugs: "0", bugsP1: "0", bugsP2: "0", bugsP3: "0", bugsP4: "0"},
+               {className: "nick.hh.config.OllamaConfig", packageName: "nick.hh.config", isInterface: "false", totalBugs: "0", bugsP1: "0", bugsP2: "0", bugsP3: "0", bugsP4: "0"},
+               {className: "nick.hh.controllers.AuthController", packageName: "nick.hh.controllers", isInterface: "false", totalBugs: "1", bugsP1: "0", bugsP2: "1", bugsP3: "0", bugsP4: "0"},
+               {className: "nick.hh.controllers.HhIntegrationController", packageName: "nick.hh.controllers", isInterface: "false", totalBugs: "0", bugsP1: "0", bugsP2: "0", bugsP3: "0", bugsP4: "0"},
+               {className: "nick.hh.dtos.CoverLetterRequest", packageName: "nick.hh.dtos", isInterface: "false", totalBugs: "0", bugsP1: "0", bugsP2: "0", bugsP3: "0", bugsP4: "0"},
+               {className: "nick.hh.dtos.ResumeFullResponse", packageName: "nick.hh.dtos", isInterface: "false", totalBugs: "0", bugsP1: "0", bugsP2: "0", bugsP3: "0", bugsP4: "0"},
+               {className: "nick.hh.dtos.ResumeFullResponse$Contact", packageName: "nick.hh.dtos", isInterface: "false", totalBugs: "0", bugsP1: "0", bugsP2: "0", bugsP3: "0", bugsP4: "0"},
+               {className: "nick.hh.dtos.ResumeFullResponse$Contact$Type", packageName: "nick.hh.dtos", isInterface: "false", totalBugs: "0", bugsP1: "0", bugsP2: "0", bugsP3: "0", bugsP4: "0"},
+               {className: "nick.hh.dtos.ResumeFullResponse$Education", packageName: "nick.hh.dtos", isInterface: "false", totalBugs: "0", bugsP1: "0", bugsP2: "0", bugsP3: "0", bugsP4: "0"},
+               {className: "nick.hh.dtos.ResumeFullResponse$Education$EducationItem", packageName: "nick.hh.dtos", isInterface: "false", totalBugs: "0", bugsP1: "0", bugsP2: "0", bugsP3: "0", bugsP4: "0"},
+               {className: "nick.hh.dtos.ResumeFullResponse$Education$Level", packageName: "nick.hh.dtos", isInterface: "false", totalBugs: "0", bugsP1: "0", bugsP2: "0", bugsP3: "0", bugsP4: "0"},
+               {className: "nick.hh.dtos.ResumeFullResponse$Experience", packageName: "nick.hh.dtos", isInterface: "false", totalBugs: "0", bugsP1: "0", bugsP2: "0", bugsP3: "0", bugsP4: "0"},
+               {className: "nick.hh.dtos.ResumeFullResponse$Experience$Area", packageName: "nick.hh.dtos", isInterface: "false", totalBugs: "0", bugsP1: "0", bugsP2: "0", bugsP3: "0", bugsP4: "0"},
+               {className: "nick.hh.dtos.ResumeFullResponse$ProfessionalRole", packageName: "nick.hh.dtos", isInterface: "false", totalBugs: "0", bugsP1: "0", bugsP2: "0", bugsP3: "0", bugsP4: "0"},
+               {className: "nick.hh.dtos.ResumeFullResponse$TotalExperience", packageName: "nick.hh.dtos", isInterface: "false", totalBugs: "0", bugsP1: "0", bugsP2: "0", bugsP3: "0", bugsP4: "0"},
+               {className: "nick.hh.dtos.auto.ApplicationRequest", packageName: "nick.hh.dtos.auto", isInterface: "false", totalBugs: "0", bugsP1: "0", bugsP2: "0", bugsP3: "0", bugsP4: "0"},
+               {className: "nick.hh.dtos.auto.AutoApplyResponse", packageName: "nick.hh.dtos.auto", isInterface: "false", totalBugs: "0", bugsP1: "0", bugsP2: "0", bugsP3: "0", bugsP4: "0"},
+               {className: "nick.hh.dtos.negotiations.NegotiationItem", packageName: "nick.hh.dtos.negotiations", isInterface: "false", totalBugs: "0", bugsP1: "0", bugsP2: "0", bugsP3: "0", bugsP4: "0"},
+               {className: "nick.hh.dtos.negotiations.NegotiationItem$State", packageName: "nick.hh.dtos.negotiations", isInterface: "false", totalBugs: "0", bugsP1: "0", bugsP2: "0", bugsP3: "0", bugsP4: "0"},
+               {className: "nick.hh.dtos.negotiations.NegotiationMessage", packageName: "nick.hh.dtos.negotiations", isInterface: "false", totalBugs: "0", bugsP1: "0", bugsP2: "0", bugsP3: "0", bugsP4: "0"},
+               {className: "nick.hh.dtos.negotiations.NegotiationMessage$Author", packageName: "nick.hh.dtos.negotiations", isInterface: "false", totalBugs: "0", bugsP1: "0", bugsP2: "0", bugsP3: "0", bugsP4: "0"},
+               {className: "nick.hh.dtos.negotiations.NegotiationMessagesResponse", packageName: "nick.hh.dtos.negotiations", isInterface: "false", totalBugs: "0", bugsP1: "0", bugsP2: "0", bugsP3: "0", bugsP4: "0"},
+               {className: "nick.hh.dtos.negotiations.NegotiationsResponse", packageName: "nick.hh.dtos.negotiations", isInterface: "false", totalBugs: "0", bugsP1: "0", bugsP2: "0", bugsP3: "0", bugsP4: "0"},
+               {className: "nick.hh.dtos.vacansies.HhSearchResponse", packageName: "nick.hh.dtos.vacansies", isInterface: "false", totalBugs: "0", bugsP1: "0", bugsP2: "0", bugsP3: "0", bugsP4: "0"},
+               {className: "nick.hh.dtos.vacansies.VacancyItem", packageName: "nick.hh.dtos.vacansies", isInterface: "false", totalBugs: "0", bugsP1: "0", bugsP2: "0", bugsP3: "0", bugsP4: "0"},
+               {className: "nick.hh.dtos.vacansies.VacancyItem$Employer", packageName: "nick.hh.dtos.vacansies", isInterface: "false", totalBugs: "0", bugsP1: "0", bugsP2: "0", bugsP3: "0", bugsP4: "0"},
+               {className: "nick.hh.dtos.vacansies.VacancyItem$Salary", packageName: "nick.hh.dtos.vacansies", isInterface: "false", totalBugs: "0", bugsP1: "0", bugsP2: "0", bugsP3: "0", bugsP4: "0"},
+               {className: "nick.hh.dtos.vacansies.VacancyResponse", packageName: "nick.hh.dtos.vacansies", isInterface: "false", totalBugs: "0", bugsP1: "0", bugsP2: "0", bugsP3: "0", bugsP4: "0"},
+               {className: "nick.hh.dtos.vacansies.VacancyResponse$Employer", packageName: "nick.hh.dtos.vacansies", isInterface: "false", totalBugs: "0", bugsP1: "0", bugsP2: "0", bugsP3: "0", bugsP4: "0"},
+               {className: "nick.hh.dtos.vacansies.VacancySearchRequest", packageName: "nick.hh.dtos.vacansies", isInterface: "false", totalBugs: "0", bugsP1: "0", bugsP2: "0", bugsP3: "0", bugsP4: "0"},
+               {className: "nick.hh.services.CoverLetterService", packageName: "nick.hh.services", isInterface: "false", totalBugs: "1", bugsP1: "0", bugsP2: "1", bugsP3: "0", bugsP4: "0"},
+               {className: "nick.hh.services.HhApiService", packageName: "nick.hh.services", isInterface: "false", totalBugs: "2", bugsP1: "0", bugsP2: "2", bugsP3: "0", bugsP4: "0"},
+               {className: "nick.hh.services.HhApiService$1", packageName: "nick.hh.services", isInterface: "false", totalBugs: "0", bugsP1: "0", bugsP2: "0", bugsP3: "0", bugsP4: "0"},
+               {className: "nick.hh.services.MessagePollerService", packageName: "nick.hh.services", isInterface: "false", totalBugs: "0", bugsP1: "0", bugsP2: "0", bugsP3: "0", bugsP4: "0"}
+         );
+
+         var packageStats = new Array(
+               {packageName: "nick.hh", totalBugs: "0", bugsP1: "0", bugsP2: "0", bugsP3: "0", bugsP4: "0"},
+               {packageName: "nick.hh.config", totalBugs: "0", bugsP1: "0", bugsP2: "0", bugsP3: "0", bugsP4: "0"},
+               {packageName: "nick.hh.controllers", totalBugs: "1", bugsP1: "0", bugsP2: "1", bugsP3: "0", bugsP4: "0"},
+               {packageName: "nick.hh.dtos", totalBugs: "0", bugsP1: "0", bugsP2: "0", bugsP3: "0", bugsP4: "0"},
+               {packageName: "nick.hh.dtos.auto", totalBugs: "0", bugsP1: "0", bugsP2: "0", bugsP3: "0", bugsP4: "0"},
+               {packageName: "nick.hh.dtos.negotiations", totalBugs: "0", bugsP1: "0", bugsP2: "0", bugsP3: "0", bugsP4: "0"},
+               {packageName: "nick.hh.dtos.vacansies", totalBugs: "0", bugsP1: "0", bugsP2: "0", bugsP3: "0", bugsP4: "0"},
+               {packageName: "nick.hh.services", totalBugs: "3", bugsP1: "0", bugsP2: "3", bugsP3: "0", bugsP4: "0"}
+         );
+
+         var bugs = new Array(
+               {
+                  id: "fcce632f0c7227d695cd85032d81518f-0",
+                  category: "STYLE",
+                  code: "NP",
+                  pattern: "NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE",
+                  priority: 2,
+                  firstVersion: 0,
+                  className: "nick.hh.controllers.AuthController",
+                  packageName: "nick.hh.controllers"
+               },
+               {
+                  id: "77d6eceb77c7af58cb1428a242bddf49-0",
+                  category: "BAD_PRACTICE",
+                  code: "FS",
+                  pattern: "VA_FORMAT_STRING_USES_NEWLINE",
+                  priority: 2,
+                  firstVersion: 0,
+                  className: "nick.hh.services.CoverLetterService",
+                  packageName: "nick.hh.services"
+               },
+               {
+                  id: "3d1046b5c28555b07119d18ee4045e1d-0",
+                  category: "STYLE",
+                  code: "NP",
+                  pattern: "NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE",
+                  priority: 2,
+                  firstVersion: 0,
+                  className: "nick.hh.services.HhApiService",
+                  packageName: "nick.hh.services"
+               },
+               {
+                  id: "e86c0147f7d7cb0f7c505009bb69c8c6-0",
+                  category: "STYLE",
+                  code: "REC",
+                  pattern: "REC_CATCH_EXCEPTION",
+                  priority: 2,
+                  firstVersion: 0,
+                  className: "nick.hh.services.HhApiService",
+                  packageName: "nick.hh.services"
+               }
+         );
+
+         var fixedBugs = new Array(
+         );
+      </script>
+   </head>
+   <body>
+      <h3>
+         <a href="https://spotbugs.github.io">SpotBugs</a> (4.9.8) analysis for hh (spotbugsMain) of release 0.0.1-SNAPSHOT</h3>
+      <div id="menuWrapper">
+         <div id="navcontainer">
+            <ul id="navlist">
+               <li>
+                  <a id="summary"
+                     class="current"
+                     href="#summaryTab"
+                     onclick="selectMenu('summary'); return false;">Summary</a>
+               </li>
+               <li id="historyMenu">
+                  <a id="history"
+                     class="none"
+                     href="#historyTab"
+                     onclick="selectMenu('history'); return false;">History</a>
+               </li>
+               <li>
+                  <a id="listByCategories"
+                     class="none"
+                     href="#listByCategoriesTab"
+                     onclick="selectMenu('listByCategories'); return false;">Browse By Categories</a>
+               </li>
+               <li>
+                  <a id="listByPackages"
+                     class="none"
+                     href="#listByPackagesTab"
+                     onclick="selectMenu('listByPackages'); return false;">Browse by Packages</a>
+               </li>
+               <li>
+                  <a id="info"
+                     class="none"
+                     href="#infoTab"
+                     onclick="selectMenu('info'); return false;">Info</a>
+               </li>
+            </ul>
+         </div>
+      </div>
+      <div id="displayWrapper">
+         <div style="height:25px;">
+            <div id="messageContainer" style="float:right;">
+            Computing data...
+         </div>
+            <div id="filterWrapper" style="display:none;">
+               <form name="findbugsForm">
+                  <div id="filterContainer">
+                     <select name="versions" onchange="filter()">
+                        <option value="loading">Loading filter...</option>
+                     </select>
+                     <select name="priorities" onchange="filter()">
+                        <option id="4" value="4"> -- All priorities -- </option>
+                        <option id="1" value="1"> P1 bugs </option>
+                        <option id="2" value="2"> P1 and P2 bugs </option>
+                        <option id="3" value="3"> P1, P2 and P3 bugs </option>
+                     </select>
+                  </div>
+               </form>
+            </div>
+            <div id="historyControlWrapper" style="display:none;">
+               <form name="findbugsHistoryControlForm">
+                  <div id="historyControlContainer">
+                     <input type="checkbox"
+                            name="includeFixedIntroducedBugs"
+                            value="checked"
+                            alt="Include fixed introduced bugs."
+                            onchange="includeFixedIntroducedBugsInHistory()"/>
+                  Include counts of introduced bugs that were fixed in later releases.
+               </div>
+               </form>
+            </div>
+         </div>
+         <div id="summaryContainer" class="displayContainer">
+            <h3>Package Summary</h3>
+            <table>
+               <tr>
+                  <th>Package</th>
+                  <th>Code Size</th>
+                  <th>Total Bugs</th>
+                  <th>Bugs P1</th>
+                  <th>Bugs P2</th>
+                  <th>Bugs P3</th>
+                  <th>Bugs Experimental</th>
+               </tr>
+               <tr>
+                  <td class="summary-name">Overall (8 packages, 34 classes)</td>
+                  <td class="summary-size">947</td>
+                  <td class="summary-priority-all">4</td>
+                  <td class="summary-priority-1">0</td>
+                  <td class="summary-priority-2">4</td>
+                  <td class="summary-priority-3">0</td>
+                  <td class="summary-priority-4">0</td>
+               </tr>
+               <tr>
+                  <td class="summary-name">nick.hh.controllers</td>
+                  <td class="summary-size">96</td>
+                  <td class="summary-priority-all">1</td>
+                  <td class="summary-priority-1">0</td>
+                  <td class="summary-priority-2">1</td>
+                  <td class="summary-priority-3">0</td>
+                  <td class="summary-priority-4">0</td>
+               </tr>
+               <tr>
+                  <td class="summary-name">nick.hh.services</td>
+                  <td class="summary-size">296</td>
+                  <td class="summary-priority-all">3</td>
+                  <td class="summary-priority-1">0</td>
+                  <td class="summary-priority-2">3</td>
+                  <td class="summary-priority-3">0</td>
+                  <td class="summary-priority-4">0</td>
+               </tr>
+            </table>
+         </div>
+         <div id="infoContainer" class="displayContainer">
+            <div id="analyzed-files">
+               <h3>Analyzed Files:</h3>
+               <ul>
+                  <li>/Users/nsverhovod/IdeaProjects/hh2/build/classes/java/main/nick/hh/HhApplication.class</li>
+                  <li>/Users/nsverhovod/IdeaProjects/hh2/build/classes/java/main/nick/hh/config/OllamaConfig.class</li>
+                  <li>/Users/nsverhovod/IdeaProjects/hh2/build/classes/java/main/nick/hh/controllers/AuthController.class</li>
+                  <li>/Users/nsverhovod/IdeaProjects/hh2/build/classes/java/main/nick/hh/controllers/HhIntegrationController.class</li>
+                  <li>/Users/nsverhovod/IdeaProjects/hh2/build/classes/java/main/nick/hh/dtos/CoverLetterRequest.class</li>
+                  <li>/Users/nsverhovod/IdeaProjects/hh2/build/classes/java/main/nick/hh/dtos/ResumeFullResponse$Contact$Type.class</li>
+                  <li>/Users/nsverhovod/IdeaProjects/hh2/build/classes/java/main/nick/hh/dtos/ResumeFullResponse$Contact.class</li>
+                  <li>/Users/nsverhovod/IdeaProjects/hh2/build/classes/java/main/nick/hh/dtos/ResumeFullResponse$Education$EducationItem.class</li>
+                  <li>/Users/nsverhovod/IdeaProjects/hh2/build/classes/java/main/nick/hh/dtos/ResumeFullResponse$Education$Level.class</li>
+                  <li>/Users/nsverhovod/IdeaProjects/hh2/build/classes/java/main/nick/hh/dtos/ResumeFullResponse$Education.class</li>
+                  <li>/Users/nsverhovod/IdeaProjects/hh2/build/classes/java/main/nick/hh/dtos/ResumeFullResponse$Experience$Area.class</li>
+                  <li>/Users/nsverhovod/IdeaProjects/hh2/build/classes/java/main/nick/hh/dtos/ResumeFullResponse$Experience.class</li>
+                  <li>/Users/nsverhovod/IdeaProjects/hh2/build/classes/java/main/nick/hh/dtos/ResumeFullResponse$ProfessionalRole.class</li>
+                  <li>/Users/nsverhovod/IdeaProjects/hh2/build/classes/java/main/nick/hh/dtos/ResumeFullResponse$TotalExperience.class</li>
+                  <li>/Users/nsverhovod/IdeaProjects/hh2/build/classes/java/main/nick/hh/dtos/ResumeFullResponse.class</li>
+                  <li>/Users/nsverhovod/IdeaProjects/hh2/build/classes/java/main/nick/hh/dtos/auto/ApplicationRequest.class</li>
+                  <li>/Users/nsverhovod/IdeaProjects/hh2/build/classes/java/main/nick/hh/dtos/auto/AutoApplyResponse.class</li>
+                  <li>/Users/nsverhovod/IdeaProjects/hh2/build/classes/java/main/nick/hh/dtos/negotiations/NegotiationItem$State.class</li>
+                  <li>/Users/nsverhovod/IdeaProjects/hh2/build/classes/java/main/nick/hh/dtos/negotiations/NegotiationItem.class</li>
+                  <li>/Users/nsverhovod/IdeaProjects/hh2/build/classes/java/main/nick/hh/dtos/negotiations/NegotiationMessage$Author.class</li>
+                  <li>/Users/nsverhovod/IdeaProjects/hh2/build/classes/java/main/nick/hh/dtos/negotiations/NegotiationMessage.class</li>
+                  <li>/Users/nsverhovod/IdeaProjects/hh2/build/classes/java/main/nick/hh/dtos/negotiations/NegotiationMessagesResponse.class</li>
+                  <li>/Users/nsverhovod/IdeaProjects/hh2/build/classes/java/main/nick/hh/dtos/negotiations/NegotiationsResponse.class</li>
+                  <li>/Users/nsverhovod/IdeaProjects/hh2/build/classes/java/main/nick/hh/dtos/vacansies/HhSearchResponse.class</li>
+                  <li>/Users/nsverhovod/IdeaProjects/hh2/build/classes/java/main/nick/hh/dtos/vacansies/VacancyItem$Employer.class</li>
+                  <li>/Users/nsverhovod/IdeaProjects/hh2/build/classes/java/main/nick/hh/dtos/vacansies/VacancyItem$Salary.class</li>
+                  <li>/Users/nsverhovod/IdeaProjects/hh2/build/classes/java/main/nick/hh/dtos/vacansies/VacancyItem.class</li>
+                  <li>/Users/nsverhovod/IdeaProjects/hh2/build/classes/java/main/nick/hh/dtos/vacansies/VacancyResponse$Employer.class</li>
+                  <li>/Users/nsverhovod/IdeaProjects/hh2/build/classes/java/main/nick/hh/dtos/vacansies/VacancyResponse.class</li>
+                  <li>/Users/nsverhovod/IdeaProjects/hh2/build/classes/java/main/nick/hh/dtos/vacansies/VacancySearchRequest.class</li>
+                  <li>/Users/nsverhovod/IdeaProjects/hh2/build/classes/java/main/nick/hh/services/CoverLetterService.class</li>
+                  <li>/Users/nsverhovod/IdeaProjects/hh2/build/classes/java/main/nick/hh/services/HhApiService$1.class</li>
+                  <li>/Users/nsverhovod/IdeaProjects/hh2/build/classes/java/main/nick/hh/services/HhApiService.class</li>
+                  <li>/Users/nsverhovod/IdeaProjects/hh2/build/classes/java/main/nick/hh/services/MessagePollerService.class</li>
+               </ul>
+            </div>
+            <div id="used-libraries">
+               <h3>Used Libraries:</h3>
+               <ul>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/ch.qos.logback/logback-classic/1.5.18/fc371f3fc97a639de2d67947cffb7518ec5e3d40/logback-classic-1.5.18.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/ch.qos.logback/logback-core/1.5.18/6c0375624f6f36b4e089e2488ba21334a11ef13f/logback-core-1.5.18.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/com.fasterxml.jackson.core/jackson-annotations/2.19.0/fd1e7c56de1e5b658563c8c66d5074cceb4e3a0b/jackson-annotations-2.19.0.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/com.fasterxml.jackson.core/jackson-core/2.19.0/a90640e59ea42632a8e331ff1d6b706cf306050a/jackson-core-2.19.0.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/com.fasterxml.jackson.core/jackson-databind/2.17.0/7173e9e1d4bc6d7ca03bc4eeedcd548b8b580b34/jackson-databind-2.17.0.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/com.fasterxml.jackson.dataformat/jackson-dataformat-yaml/2.19.0/2d735ab4ecebf5c2bf248d4036fd4ba6d73d0cc1/jackson-dataformat-yaml-2.19.0.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/com.fasterxml.jackson.datatype/jackson-datatype-jdk8/2.19.0/69312135ff6d6646203b9681fa48505f369210a6/jackson-datatype-jdk8-2.19.0.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/com.fasterxml.jackson.datatype/jackson-datatype-jsr310/2.19.0/4c98a2fa8b35b5ffe102438f747f7b526619fde7/jackson-datatype-jsr310-2.19.0.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/com.fasterxml.jackson.module/jackson-module-jsonSchema/2.19.0/3ec643e29bf6495e9b20ae9a7eacae874a754484/jackson-module-jsonSchema-2.19.0.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/com.fasterxml.jackson.module/jackson-module-parameter-names/2.19.0/4963234952362539ca73c85b6a423c851f04f1d/jackson-module-parameter-names-2.19.0.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/com.fasterxml/classmate/1.7.0/e98374da1f2143ac8e6e0a95036994bb19137a3/classmate-1.7.0.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/com.github.victools/jsonschema-generator/4.37.0/ec28160ed810268595d124fdb990a66123259d89/jsonschema-generator-4.37.0.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/com.github.victools/jsonschema-module-jackson/4.37.0/51afaeb328e164b8ea7460127a9853fb5fbd9e95/jsonschema-module-jackson-4.37.0.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/com.github.victools/jsonschema-module-swagger-2/4.37.0/1eb3fe3162ff5a8da85b3575e9905980e4272e52/jsonschema-module-swagger-2-4.37.0.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/com.knuddels/jtokkit/1.1.0/b7370f801db3eb8c7c6a2c2c06231909ac6de0b0/jtokkit-1.1.0.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/io.micrometer/context-propagation/1.1.3/19cea055eed20e80875705fcf9943ca8e978cf92/context-propagation-1.1.3.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/io.micrometer/micrometer-commons/1.15.0/a796f0418b2e0fe42988a1ca6e240d8b3fb5e954/micrometer-commons-1.15.0.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/io.micrometer/micrometer-core/1.15.0/76a8b4e49d97fc1fde06ec462d0819a62f6e1a38/micrometer-core-1.15.0.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/io.micrometer/micrometer-observation/1.15.0/1bcd42cb00aead4d441038fa86b0e6b41922e254/micrometer-observation-1.15.0.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/io.netty/netty-buffer/4.1.121.Final/7f4edd9e82d3b62d8218e766a01dfc9769c6b290/netty-buffer-4.1.121.Final.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/io.netty/netty-codec-dns/4.1.121.Final/96cb258cf8745c41909cd57b5462565e8bca6c86/netty-codec-dns-4.1.121.Final.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/io.netty/netty-codec-http/4.1.121.Final/53cdc976e967d809d7c84b94a02bda15c8934804/netty-codec-http-4.1.121.Final.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/io.netty/netty-codec-http2/4.1.121.Final/b9ac1aefe4277d1c648fdd3fab63397695212aeb/netty-codec-http2-4.1.121.Final.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/io.netty/netty-codec-socks/4.1.121.Final/23ddd663a5bce3162c9124f51117b7bf3a84299d/netty-codec-socks-4.1.121.Final.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/io.netty/netty-codec/4.1.121.Final/69dd3a2a5b77f8d951fb05690f65448d96210888/netty-codec-4.1.121.Final.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/io.netty/netty-common/4.1.121.Final/7a5252fc3543286abbd1642eac74e4df87f7235f/netty-common-4.1.121.Final.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/io.netty/netty-handler-proxy/4.1.121.Final/2a990d3627c4acffb4db1857eb98be71cf089797/netty-handler-proxy-4.1.121.Final.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/io.netty/netty-handler/4.1.121.Final/8ee11055fae8d4dc60ae81fad924cf5bba73f1b6/netty-handler-4.1.121.Final.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/io.netty/netty-resolver-dns-classes-macos/4.1.121.Final/4b068180f7f43579ee74dec618ebfe700d9f2c44/netty-resolver-dns-classes-macos-4.1.121.Final.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/io.netty/netty-resolver-dns-native-macos/4.1.121.Final/30deffedd2082339ed095e320fc99e91c1b656cb/netty-resolver-dns-native-macos-4.1.121.Final-osx-x86_64.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/io.netty/netty-resolver-dns/4.1.121.Final/537370c12776ec85a45ec79456a866c78924b769/netty-resolver-dns-4.1.121.Final.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/io.netty/netty-resolver/4.1.121.Final/e5af1b8cd5ec29a597c6e5d455bcab53991cb581/netty-resolver-4.1.121.Final.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/io.netty/netty-transport-classes-epoll/4.1.121.Final/4e157b803175057034c42d434bae6ae46d22f34b/netty-transport-classes-epoll-4.1.121.Final.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/io.netty/netty-transport-native-epoll/4.1.121.Final/7f8ae85ea3d9785451962a3ccc761bebb31f394d/netty-transport-native-epoll-4.1.121.Final-linux-x86_64.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/io.netty/netty-transport-native-unix-common/4.1.121.Final/8b73e6fd9a5abca863f4d91a8623b9bf381bce81/netty-transport-native-unix-common-4.1.121.Final.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/io.netty/netty-transport/4.1.121.Final/726358c7a8d0bf25d8ba6be5e2318f1b14bb508d/netty-transport-4.1.121.Final.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/io.projectreactor.netty/reactor-netty-core/1.2.6/a6445eadc1fbe58f6e4fa51b2691e8b0881e19b0/reactor-netty-core-1.2.6.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/io.projectreactor.netty/reactor-netty-http/1.2.6/a7586caf765cfc77caaa37c33431efe700742218/reactor-netty-http-1.2.6.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/io.projectreactor/reactor-core/3.7.6/31227819dec364cd2b558a5d0b4581365c3310c8/reactor-core-3.7.6.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/io.swagger.core.v3/swagger-annotations-jakarta/2.2.21/3fa24dc3ad843c44602df97832f2d38e7bad1465/swagger-annotations-jakarta-2.2.21.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/io.swagger.core.v3/swagger-annotations/2.2.25/99e9a5bf01f790fe4e13d83f53e9cd171f9667e1/swagger-annotations-2.2.25.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/io.swagger.core.v3/swagger-core-jakarta/2.2.21/b7d961d3431bb200af600c5bb6b68024c2f6282c/swagger-core-jakarta-2.2.21.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/io.swagger.core.v3/swagger-models-jakarta/2.2.21/3f6ed502304a3a2cc4ae847dbdc956ba010e8261/swagger-models-jakarta-2.2.21.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/jakarta.activation/jakarta.activation-api/2.1.3/fa165bd70cda600368eee31555222776a46b881f/jakarta.activation-api-2.1.3.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/jakarta.annotation/jakarta.annotation-api/2.1.1/48b9bda22b091b1f48b13af03fe36db3be6e1ae3/jakarta.annotation-api-2.1.1.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/jakarta.validation/jakarta.validation-api/3.0.2/92b6631659ba35ca09e44874d3eb936edfeee532/jakarta.validation-api-3.0.2.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/jakarta.xml.bind/jakarta.xml.bind-api/4.0.2/6cd5a999b834b63238005b7144136379dc36cad2/jakarta.xml.bind-api-4.0.2.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/javax.validation/validation-api/1.1.0.Final/8613ae82954779d518631e05daa73a6a954817d5/validation-api-1.1.0.Final.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/net.bytebuddy/byte-buddy/1.17.5/88450f120903b7e72470462cdbd2b75a3842223c/byte-buddy-1.17.5.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/org.antlr/ST4/4.3.4/bf68d049dd4e6e104055a79ac3bf9e6307d29258/ST4-4.3.4.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/org.antlr/antlr-runtime/3.5.3/9011fb189c5ed6d99e5f3322514848d1ec1e1416/antlr-runtime-3.5.3.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/org.antlr/antlr4-runtime/4.13.1/17125bae1d965624e265ef49552f6465a2bfa307/antlr4-runtime-4.13.1.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/org.apache.commons/commons-lang3/3.17.0/b17d2136f0460dcc0d2016ceefca8723bdf4ee70/commons-lang3-3.17.0.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/org.apache.logging.log4j/log4j-api/2.24.3/b02c125db8b6d295adf72ae6e71af5d83bce2370/log4j-api-2.24.3.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/org.apache.logging.log4j/log4j-to-slf4j/2.24.3/da1143e2a2531ee1c2d90baa98eb50a28a39d5a7/log4j-to-slf4j-2.24.3.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/org.apache.tomcat.embed/tomcat-embed-core/10.1.41/bcf9c79a4508fd36c93babc83823c09b3aa2d510/tomcat-embed-core-10.1.41.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/org.apache.tomcat.embed/tomcat-embed-el/10.1.41/5ca28d87f558ce31b9952dc9592f46633dc5d7a3/tomcat-embed-el-10.1.41.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/org.apache.tomcat.embed/tomcat-embed-websocket/10.1.41/d696393d5949252ed8d561184df118b3ca5efd07/tomcat-embed-websocket-10.1.41.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/org.projectlombok/lombok/1.18.38/57f8f5e02e92a30fd21b80cbd426a4172b5f8e29/lombok-1.18.38.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/org.reactivestreams/reactive-streams/1.0.4/3864a1320d97d7b045f729a326e1e077661f31b7/reactive-streams-1.0.4.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/org.slf4j/jul-to-slf4j/2.0.17/524cb6ccc2b68a57604750e1ab8b13b5a786a6aa/jul-to-slf4j-2.0.17.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/org.slf4j/slf4j-api/2.0.17/d9e58ac9c7779ba3bf8142aff6c830617a7fe60f/slf4j-api-2.0.17.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/org.springdoc/springdoc-openapi-starter-common/2.5.0/d83078092cc4e61ef502018c7560d466210cc14e/springdoc-openapi-starter-common-2.5.0.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/org.springdoc/springdoc-openapi-starter-webmvc-api/2.5.0/a450d666f17b10adff53703b16bc77954a045fd2/springdoc-openapi-starter-webmvc-api-2.5.0.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/org.springdoc/springdoc-openapi-starter-webmvc-ui/2.5.0/e81e60e9be9fd65503071337e634b6056127a2fb/springdoc-openapi-starter-webmvc-ui-2.5.0.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/org.springframework.ai/spring-ai-core/1.0.0-M6/47aebc8a79611066bdd820721826ad0025e2e5f5/spring-ai-core-1.0.0-M6.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/org.springframework.ai/spring-ai-ollama-spring-boot-starter/1.0.0-M6/943fe4b4b255d36b582bed3268f8ecce1c4b3553/spring-ai-ollama-spring-boot-starter-1.0.0-M6.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/org.springframework.ai/spring-ai-ollama/1.0.0-M6/8f2168b9528dc2ab948551ec958a442258b663d/spring-ai-ollama-1.0.0-M6.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/org.springframework.ai/spring-ai-retry/1.0.0-M6/5baa450f1fab50646aecb12d4ff7dd7c1644a24/spring-ai-retry-1.0.0-M6.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/org.springframework.ai/spring-ai-spring-boot-autoconfigure/1.0.0-M6/7e14a3901dae5d73923a5e646fdde491d5a0fdaa/spring-ai-spring-boot-autoconfigure-1.0.0-M6.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/org.springframework.boot/spring-boot-autoconfigure/3.5.0/a7f8ba40022dd75f20ac0eafe117437a1a7f3935/spring-boot-autoconfigure-3.5.0.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/org.springframework.boot/spring-boot-starter-json/3.5.0/af98a526ea3f68c179a6c6199bb1dbe864f43b93/spring-boot-starter-json-3.5.0.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/org.springframework.boot/spring-boot-starter-logging/3.5.0/7db0461d8895f00a9841bf5558501fe90e7eba4c/spring-boot-starter-logging-3.5.0.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/org.springframework.boot/spring-boot-starter-reactor-netty/3.5.0/5f4d31a9db91d00e5d9f06a947ae33ea45c41562/spring-boot-starter-reactor-netty-3.5.0.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/org.springframework.boot/spring-boot-starter-tomcat/3.5.0/2e22a33e6f9444a7248581a23541fea5c1f6c216/spring-boot-starter-tomcat-3.5.0.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/org.springframework.boot/spring-boot-starter-web/3.5.0/29c6198f7e5cd7c4b9a27045d93879e161d6cdd0/spring-boot-starter-web-3.5.0.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/org.springframework.boot/spring-boot-starter-webflux/3.5.0/7d338ef1befe15e654711fea23ae56c8097f2bef/spring-boot-starter-webflux-3.5.0.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/org.springframework.boot/spring-boot-starter/3.5.0/f8b02201e89d294514420a586624aa7338d61f4f/spring-boot-starter-3.5.0.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/org.springframework.boot/spring-boot/3.5.0/ec86afc460265a0219bfafe187acb6c596ac2de1/spring-boot-3.5.0.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/org.springframework.retry/spring-retry/2.0.12/62a14736086ffd6f382f0df3bf066a5a34f174fa/spring-retry-2.0.12.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/org.springframework/spring-aop/6.2.7/3df3ee9217cb62e65382718351e56f1eeb76e74c/spring-aop-6.2.7.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/org.springframework/spring-beans/6.2.7/64119950b73943f67196705e43acddd7bf714c45/spring-beans-6.2.7.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/org.springframework/spring-context/6.2.7/e0f3850bba7ff52016429e8d2fa39b5107f1fde6/spring-context-6.2.7.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/org.springframework/spring-core/6.2.7/525a228b8b4323568b7aa9e49c1e1df27838adf1/spring-core-6.2.7.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/org.springframework/spring-expression/6.2.7/fa525916c85df246fcb70c771d039523dd6f12d9/spring-expression-6.2.7.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/org.springframework/spring-jcl/6.2.7/16b5f3446a6fcf097f4910c935086d08db657653/spring-jcl-6.2.7.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/org.springframework/spring-messaging/6.2.7/4d969084e3b1915ce04d8768d89fe9c092191500/spring-messaging-6.2.7.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/org.springframework/spring-web/6.2.7/1bd08eba2f2fd69eef49473e42fe124a20e7f844/spring-web-6.2.7.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/org.springframework/spring-webflux/6.2.7/35263cd6f459c7d170a5b45f51ff718b4f11de85/spring-webflux-6.2.7.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/org.springframework/spring-webmvc/6.2.7/a1954b3a51f585c6b8582831661fec981d2571e/spring-webmvc-6.2.7.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/org.webjars/swagger-ui/5.13.0/262a148333ae8c7fd0e23606855ec516e473efd/swagger-ui-5.13.0.jar</li>
+                  <li>/Users/nsverhovod/IdeaProjects/kpo-sb/caches/modules-2/files-2.1/org.yaml/snakeyaml/2.4/e0666b825b796f85521f02360e77f4c92c5a7a07/snakeyaml-2.4.jar</li>
+               </ul>
+            </div>
+            <div id="source-files">
+               <h3>Source Files:</h3>
+               <ul>
+                  <li>/Users/nsverhovod/IdeaProjects/hh2/src/main/java</li>
+                  <li>/Users/nsverhovod/IdeaProjects/hh2/src/main/resources</li>
+               </ul>
+            </div>
+            <div id="plugins">
+               <h3>Plugins:</h3>
+               <ul>
+                  <li>None</li>
+               </ul>
+            </div>
+            <div id="analysis-error">
+               <h3>Analysis Errors:</h3>
+               <ul>
+                  <li>None</li>
+               </ul>
+            </div>
+         </div>
+         <div id="historyContainer" class="displayContainer">Loading...</div>
+         <div id="listByCategoriesContainer" class="displayContainer">Loading...</div>
+         <div id="listByPackagesContainer" class="displayContainer">Loading...</div>
+      </div>
+      <div id="bug-collection" style="display:none;">
+         <div id="b-uid-fcce632f0c7227d695cd85032d81518f-0" class="bug">
+            <div class="b-r">In class nick.hh.controllers.AuthController</div>
+            <div class="b-r">In method nick.hh.controllers.AuthController.callback(String)</div>
+            <div class="b-r">Called method org.springframework.http.ResponseEntity.getBody()</div>
+            <div class="b-r">Dereferenced at AuthController.java:[line 77]</div>
+            <div class="b-r">Known null at AuthController.java:[line 77]</div>
+            <div class="b-d">Possible null pointer dereference in nick.hh.controllers.AuthController.callback(String) due to return value of called method</div>
+         </div>
+         <div id="b-uid-77d6eceb77c7af58cb1428a242bddf49-0" class="bug">
+            <div class="b-r">In class nick.hh.services.CoverLetterService</div>
+            <div class="b-r">In method nick.hh.services.CoverLetterService.buildPrompt(ResumeFullResponse, VacancyResponse, String)</div>
+            <div class="b-r">Called method String.format(String, Object[])</div>
+            <div class="b-r">Format string "**Задача**: Создать персонализированное сопроводительное письмо для %s на позицию "%s" в %s\n\n**Контекст компании**: %s\n\n**Требования к письму**:\n1. Объем: 120-150 слов\n2. Тон: энергичный, профессиональный, без шаблонных фраз\n3. Избегать перечисления навыков - вместо этого показать их применение\n4. Использовать конкретные примеры из опыта работы\n5. Согласование рода по ФИО кандидата\n6. Естественный русский язык без грамматических ошибок\n\n**Структура**:\n[Обращение] Уважаемая команда [Компания]!\n[Введение] Представление + позиция + экспресс-соответствие\n[Основная часть]:\n  - 2 ключевых требования вакансии и конкретные примеры их реализации\n  - Уникальный вклад в проекты (с цифрами если возможно)\n  - Почему именно эта компания? (конкретная мотивация)\n[Заключение]: Призыв к действию + контакты\n\n**Данные кандидата**:\nФИО: %s (%s)\nОпыт: %s\nКлючевые навыки для этой вакансии: %s\nПримеры проектов: %s\n\n**Описание вакансии**:\n%s\n\n**Инструкции**:\n1. Сгенерировать письмо как будто его пишет сам кандидат\n2. Использовать активные глаголы: "реализовал", "оптимизировал", "увеличил"\n3. Связать 1-2 навыка из резюме с требованиями вакансии\n4. Избегать общих фраз вроде "быстро обучаюсь"\n5. В подписи использовать реальные контакты из резюме\n6. Если имя женское то использовать женский род при написании выражений, например: я делала или я управляла\n7. Если имя мужское то использовать мужской род при написании выражений, например: я делал или я управлял\n8. Проверить правописание и правила русского языка после написания письма\n9. Если есть незаполненные поля с квадратными скобками то не писать их вовсе\n\n**Дополнительные указания от пользователя**:\n%s\n"</div>
+            <div class="b-r">At CoverLetterService.java:[line 60]</div>
+            <div class="b-d">Format string should use %n rather than \n in nick.hh.services.CoverLetterService.buildPrompt(ResumeFullResponse, VacancyResponse, String)</div>
+         </div>
+         <div id="b-uid-3d1046b5c28555b07119d18ee4045e1d-0" class="bug">
+            <div class="b-r">In class nick.hh.services.HhApiService</div>
+            <div class="b-r">In method nick.hh.services.HhApiService.searchVacancies(VacancySearchRequest, int)</div>
+            <div class="b-r">Called method reactor.core.publisher.Mono.block()</div>
+            <div class="b-r">Dereferenced at HhApiService.java:[line 175]</div>
+            <div class="b-r">Known null at HhApiService.java:[line 174]</div>
+            <div class="b-d">Possible null pointer dereference in nick.hh.services.HhApiService.searchVacancies(VacancySearchRequest, int) due to return value of called method</div>
+         </div>
+         <div id="b-uid-e86c0147f7d7cb0f7c505009bb69c8c6-0" class="bug">
+            <div class="b-r">In class nick.hh.services.HhApiService</div>
+            <div class="b-r">In method nick.hh.services.HhApiService.getLatestMessages(int)</div>
+            <div class="b-r">At HhApiService.java:[line 282]</div>
+            <div class="b-d">Exception is caught when Exception is not thrown in nick.hh.services.HhApiService.getLatestMessages(int)</div>
+         </div>
+         <div id="tip-NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE" class="tip">
+            <p> The return value from a method is dereferenced without a null check,
+            and the return value of that method is one that should generally be checked
+            for null.  This may lead to a <code>NullPointerException</code> when the code is executed.
+            </p>
+         </div>
+         <div id="tip-REC_CATCH_EXCEPTION" class="tip">
+            <p>
+            This method uses a try-catch block that catches Exception objects, but Exception is not
+            thrown within the try block, and RuntimeException is not explicitly caught.  It is a common bug pattern to
+            say try { ... } catch (Exception e) { something } as a shorthand for catching a number of types of exception
+            each of whose catch blocks is identical, but this construct also accidentally catches RuntimeException as well,
+            masking potential bugs.
+            </p>
+            <p>A better approach is to either explicitly catch the specific exceptions that are thrown,
+            or to explicitly catch RuntimeException exception, rethrow it, and then catch all non-Runtime Exceptions, as shown below:</p>
+            <pre><code>try {
+            ...
+            } catch (RuntimeException e) {
+            throw e;
+            } catch (Exception e) {
+            ... deal with all non-runtime exceptions ...
+            }
+            </code></pre>
+            <p>See <a href="https://cwe.mitre.org/data/definitions/396.html">CWE-396: Declaration of Catch for Generic Exception</a>.
+            </p>
+         </div>
+         <div id="tip-VA_FORMAT_STRING_USES_NEWLINE" class="tip">
+            <p>
+            This format string includes a newline character (\n). In format strings, it is generally
+            preferable to use %n, which will produce the platform-specific line separator.
+            When using text blocks introduced in Java 15, use the <code>\</code> escape sequence:
+            <code>String value = """
+            first line%n\
+            second line%n\
+            """;</code>
+            </p>
+         </div>
+      </div>
+   </body>
+</html>
