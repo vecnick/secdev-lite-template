@@ -32,6 +32,17 @@
 
 ![image diagram](../EVIDENCE/ds/bugs.png)
 
+Выбрал баг связанный с CWE-374 (использование иммутабельного обьекта в сторонних функциях):
+![image diagram](../EVIDENCE/ds/problem-before-fix.png)
+
+Коммит с исправлением бага:
+![image diagram](../EVIDENCE/ds/commit-sast-bugfix.png)
+
+Так же отчет после исправления:
+![image diagram](../EVIDENCE/ds/problem-fixed.png)
+
+В EVIDENCE/ds/spotbugs.html можно посмотреть что все исправленно
+
 ### 2.2 Secrets scanning
 
 - **Инструмент:** Gitleaks
